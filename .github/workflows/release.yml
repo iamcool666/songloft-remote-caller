@@ -58,6 +58,12 @@ jobs:
           elif [ -f package-lock.json ]; then npm ci || npm install
           else npm install; fi
 
+      # PWA 图标：由 static/icon.svg 生成 192/512/maskable PNG 到 static/icons/
+      - name: Generate PWA icons
+        run: |
+          mkdir -p /tmp/icongen && cd /tmp/icongen && npm init -y >/dev/null && npm i sharp
+          cd "$GITHUB_WORKSPACE" && SHARP_DIR=/tmp/icongen node scripts/gen-icons.mjs
+
       - name: Build
         run: |
           if   [ -f pnpm-lock.yaml ]; then pnpm run build
