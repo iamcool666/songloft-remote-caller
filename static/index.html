@@ -956,8 +956,10 @@
                 } catch (err) {
                     if (err.status === 403 && err.payload && err.payload.detail === 'plugin_disabled') {
                         deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:16px; margin:auto; text-align:center; line-height:1.5;">请先安装并启用<br>“智能音箱”插件</span>';
+                    } else if (err.status === 401 || err.status === 403) {
+                        deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:15px; margin:auto; text-align:center; line-height:1.6;">登录已失效<br>请回到 Songloft 点右上角图标<br>重新打开</span>';
                     } else {
-                        deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:18px; margin:auto;">加载失败</span>';
+                        deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:18px; margin:auto;">加载失败' + (err && err.status ? '（' + err.status + '）' : '') + '</span>';
                     }
                 }
             }
@@ -1147,15 +1149,58 @@
     </script>
 
     <script>
-      // PWA：独立窗口模式标记 + Service Worker 注册（失败不影响主功能）
-      if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
-        document.documentElement.classList.add('is-standalone');
-      }
-      if ('serviceWorker' in navigator && window.isSecureContext) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('sw.js').catch(() => {});
-        });
-      }
+      // ===== PWA =====
+      (function () {
+        const BASE = '/api/v1/jsplugin/remote-caller/';
+        const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+        const inFrame = window.parent !== window;
+        if (standalone) document.documentElement.classList.add('is-standalone');
+
+        function currentToken() {
+          try { return (window.SongloftPlugin && SongloftPlugin.getAuthToken && SongloftPlugin.getAuthToken()) || ''; } catch (e) { return ''; }
+        }
+        // 单独打开的浏览器页（用 Songloft 顶部的「在浏览器中打开」图标进入；非嵌入、非桌面版）：把令牌写进地址栏，
+        //    这样 Safari「分享 → 添加到主屏幕」记住的就是带令牌的地址
+        if (!inFrame && !standalone) {
+          const t = currentToken();
+          if (t) {
+            const u = new URL(location.href);
+            if (u.searchParams.get('access_token') !== t) {
+              u.searchParams.set('access_token', t);
+              try { history.replaceState(null, '', u.toString()); } catch (e) {}
+            }
+            // 让 manifest 的 start_url 也带上令牌（Chrome / 新版 iOS 会读取）
+            try {
+              const m = {
+                name: '远程呼唤', short_name: '远程呼唤', description: '小爱音箱趣味互动：原声对讲 / TTS 播报',
+                id: BASE, start_url: location.href, scope: BASE, display: 'standalone', orientation: 'portrait',
+                background_color: '#F9F9FF', theme_color: '#415F91',
+                icons: [
+                  { src: BASE + 'static/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+                  { src: BASE + 'static/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+                  { src: BASE + 'static/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+                ]
+              };
+              const blobUrl = URL.createObjectURL(new Blob([JSON.stringify(m)], { type: 'application/manifest+json' }));
+              const link = document.querySelector('link[rel="manifest"]');
+              if (link) link.setAttribute('href', blobUrl);
+            } catch (e) {}
+
+            // 添加提示条
+            const tip = document.createElement('div');
+            tip.style.cssText = 'position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:900;background:var(--md-primary);color:var(--md-on-primary);border-radius:14px;padding:10px 14px;font-size:13px;line-height:1.5;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.25);touch-action:auto;';
+            tip.textContent = '点浏览器底部「分享」→「添加到主屏幕」即可（点此关闭）';
+            tip.addEventListener('click', () => tip.remove());
+            document.body.appendChild(tip);
+            setTimeout(() => tip.remove(), 15000);
+          }
+        }
+
+        // Service Worker（失败不影响主功能）
+        if ('serviceWorker' in navigator && window.isSecureContext) {
+          window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+        }
+      })();
     </script>
 </body>
 </html>
