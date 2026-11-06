@@ -6,7 +6,7 @@
     <title>远程呼唤</title>
     <link rel="icon" href="static/icon.svg" type="image/svg+xml">
     <link rel="manifest" href="static/manifest.json">
-    <meta name="theme-color" content="#415F91">
+    <meta name="theme-color" content="#F9F9FF">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="远程呼唤">
@@ -1022,7 +1022,7 @@
             }
 
             function stopRecording(e) {
-                if (e && e.type === 'touchend') e.preventDefault();
+                if (e && e.type === 'touchend' && isRecording) e.preventDefault();
                 if (!isRecording) return;
 
                 isRecording = false;
@@ -1175,6 +1175,17 @@
           return u.toString();
         }
 
+        // 状态栏颜色跟随页面背景（深浅色模式都适配）
+        function syncThemeColor() {
+          try {
+            const c = getComputedStyle(document.documentElement).getPropertyValue('--md-surface').trim();
+            const m = document.querySelector('meta[name="theme-color"]');
+            if (c && m) m.setAttribute('content', c);
+          } catch (e) {}
+        }
+        syncThemeColor();
+        try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeColor); } catch (e) {}
+
         // 单独打开的浏览器页（用 Songloft 顶部的「在浏览器中打开」图标进入；非嵌入、非桌面版）：把令牌写进地址栏，
         //    这样 Safari「分享 → 添加到主屏幕」记住的就是带令牌的地址
         if (!inFrame && !standalone) {
@@ -1190,7 +1201,7 @@
               const m = {
                 name: '远程呼唤', short_name: '远程呼唤', description: '小爱音箱趣味互动：原声对讲 / TTS 播报',
                 id: BASE, start_url: location.href, scope: BASE, display: 'standalone', orientation: 'portrait',
-                background_color: '#F9F9FF', theme_color: '#415F91',
+                background_color: '#F9F9FF', theme_color: '#F9F9FF',
                 icons: [
                   { src: BASE + 'static/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
                   { src: BASE + 'static/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
