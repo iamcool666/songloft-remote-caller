@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/songloft-org/plugin-toolchain/main/schemas/plugin.schema.json",
   "name": "远程呼唤",
-  "version": "0.3.1.1",
+  "version": "0.3.1.2",
   "description": "小爱音箱趣味互动插件。让智能音箱秒变'家庭对讲机'和'整蛊神器'！",
   "author": "birdstudy-nj",
   "homepage": "https://github.com/birdstudy-nj/songloft-remote-caller",
