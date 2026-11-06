@@ -7,7 +7,7 @@
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F9F9FF",
-  "theme_color": "#415F91",
+  "theme_color": "#F9F9FF",
   "icons": [
     {
       "src": "/api/v1/jsplugin/remote-caller/static/icons/icon-192.png",
