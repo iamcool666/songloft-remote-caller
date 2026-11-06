@@ -1159,6 +1159,13 @@
         function currentToken() {
           try { return (window.SongloftPlugin && SongloftPlugin.getAuthToken && SongloftPlugin.getAuthToken()) || ''; } catch (e) { return ''; }
         }
+        function tokenUrl() {
+          const t = currentToken();
+          const u = new URL(BASE, location.origin);
+          if (t) u.searchParams.set('access_token', t);
+          return u.toString();
+        }
+
         // 单独打开的浏览器页（用 Songloft 顶部的「在浏览器中打开」图标进入；非嵌入、非桌面版）：把令牌写进地址栏，
         //    这样 Safari「分享 → 添加到主屏幕」记住的就是带令牌的地址
         if (!inFrame && !standalone) {
@@ -1194,6 +1201,21 @@
             document.body.appendChild(tip);
             setTimeout(() => tip.remove(), 15000);
           }
+        }
+
+        // 嵌在 Songloft 里时：右上角放一个与宿主风格一致的「在新页面打开」图标
+        // （宿主自带的那个在部分环境点了没反应）。新页面的地址带令牌，可直接添加到主屏幕。
+        if (inFrame && !standalone) {
+          const btn = document.createElement('button');
+          btn.setAttribute('aria-label', '在新页面打开（可添加到桌面）');
+          btn.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>';
+          btn.style.cssText = 'position:fixed;top:2px;right:6px;z-index:900;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:var(--md-on-surface-variant);padding:0;cursor:pointer;opacity:.7;touch-action:auto;-webkit-tap-highlight-color:transparent;';
+          btn.addEventListener('click', () => {
+            const url = tokenUrl();
+            const w = window.open(url, '_blank');
+            if (!w) { try { window.top.location.href = url; } catch (e) { location.href = url; } }
+          });
+          document.body.appendChild(btn);
         }
 
         // Service Worker（失败不影响主功能）
