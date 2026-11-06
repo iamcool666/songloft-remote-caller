@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>远程呼唤</title>
     <link rel="icon" href="static/icon.svg" type="image/svg+xml">
+    <link rel="manifest" href="static/manifest.json">
+    <meta name="theme-color" content="#415F91">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="远程呼唤">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="static/icons/icon-192.png">
     <style>
         /* ================= 基础与无滚动自适应 ================= */
         html, body {
@@ -1137,6 +1144,18 @@
                 } else { announce("没有可试听的录音"); }
             });
         });
+    </script>
+
+    <script>
+      // PWA：独立窗口模式标记 + Service Worker 注册（失败不影响主功能）
+      if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+        document.documentElement.classList.add('is-standalone');
+      }
+      if ('serviceWorker' in navigator && window.isSecureContext) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js').catch(() => {});
+        });
+      }
     </script>
 </body>
 </html>
