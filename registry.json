@@ -1,6 +1,7 @@
 {
   "name": "iamcool666 的插件源",
   "plugins": [
-    "https://raw.githubusercontent.com/iamcool666/songloft-remote-caller/main/plugin.json"
+    "https://raw.githubusercontent.com/iamcool666/songloft-remote-caller/main/plugin.json",
+    "https://raw.githubusercontent.com/iamcool666/music/main/plugin.json"
   ]
 }
