@@ -299,6 +299,15 @@
             opacity: 1;
         }
 
+        /* 扩大单选的可点区域，避免需要用力/精准点击才能选中 */
+        .radio-group { position: relative; z-index: 2; }
+        .radio-label {
+            padding: 12px 10px;
+            margin: -12px -10px;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
         .text-field {
             display: flex;
             flex: 1;
