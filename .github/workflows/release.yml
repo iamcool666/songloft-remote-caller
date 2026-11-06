@@ -61,16 +61,17 @@ jobs:
             exit 1
           fi
 
-      # 仅作用于本次构建（不提交）：让包内的更新地址指向当前仓库而不是上游
-      - name: Point plugin.json URLs to this repo
+      # 整理 plugin.json（按官方「插件源」文档）：
+      # updateUrl 指向仓库里的 manifest.json（version + download_url），plugin.json 里不再写死 download_url
+      - name: Normalize plugin.json
         run: |
           node -e "
             const fs=require('fs');
             const repo=process.env.GITHUB_REPOSITORY;
             const p=JSON.parse(fs.readFileSync('plugin.json','utf8'));
             p.homepage='https://github.com/'+repo;
-            p.updateUrl='https://raw.githubusercontent.com/'+repo+'/main/plugin.json';
-            p.download_url='https://github.com/'+repo+'/releases/download/v'+p.version+'/'+p.entryPath+'.jsplugin.zip';
+            p.updateUrl='https://raw.githubusercontent.com/'+repo+'/main/manifest.json';
+            delete p.download_url;
             fs.writeFileSync('plugin.json',JSON.stringify(p,null,2)+'\n');
           "
 
@@ -134,3 +135,31 @@ jobs:
           files: |
             dist/*.jsplugin.zip
             dist/*.json
+
+      # 发布成功后，把更新清单 manifest.json（version + download_url）和整理后的 plugin.json 提交回 main，
+      # 供 Songloft 在线检查更新 / 被插件源订阅。清单只在 Release 已存在之后才变化，
+      # 所以不会出现「提示有新版本但下载不到」。
+      - name: Update manifest.json on main
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
+        run: |
+          node -e "
+            const fs=require('fs');
+            const repo=process.env.GITHUB_REPOSITORY;
+            const p=JSON.parse(fs.readFileSync('plugin.json','utf8'));
+            const m={version:p.version,download_url:'https://github.com/'+repo+'/releases/download/v'+p.version+'/'+p.entryPath+'.jsplugin.zip'};
+            fs.writeFileSync('/tmp/manifest.json',JSON.stringify(m,null,2)+'\n');
+          "
+          cp plugin.json /tmp/plugin.json
+          git checkout -- plugin.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
+          cp /tmp/plugin.json plugin.json
+          cp /tmp/manifest.json manifest.json
+          git add plugin.json manifest.json
+          if git diff --cached --quiet; then
+            echo "无变化"
+          else
+            git commit -m "chore: manifest -> v${{ steps.info.outputs.version }} [skip ci]"
+            git push origin HEAD:main
+          fi
