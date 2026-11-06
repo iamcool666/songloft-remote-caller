@@ -2,7 +2,9 @@ name: Release plugin
 
 on:
   push:
-    tags: ['v*']          # 自动：推送 v0.3.2 这类标签即打包发布
+    branches: [main]      # 自动：main 上 plugin.json 改了版本号（且该版本还没发布过）就发布
+    paths: ['plugin.json']
+    tags: ['v*']          # 自动：推送 v0.3.2 这类标签也会发布
   workflow_dispatch:      # 手动：Actions 页面点 Run workflow
     inputs:
       publish:
@@ -14,7 +16,29 @@ permissions:
   contents: write
 
 jobs:
+  # 判断本次是否需要发布：main 分支推送时，只有「该版本号还没有对应标签」才发布
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.c.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: c
+        run: |
+          ver=$(node -p "require('./plugin.json').version")
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref_type }}" = "branch" ]; then
+            if git ls-remote --exit-code --tags origin "refs/tags/v$ver" >/dev/null 2>&1; then
+              echo "v$ver 已发布过，跳过"; echo "release=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "release=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: check
+    if: needs.check.outputs.release == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,11 +82,30 @@ jobs:
           elif [ -f package-lock.json ]; then npm ci || npm install
           else npm install; fi
 
-      # PWA 图标：由 static/icon.svg 生成 192/512/maskable PNG 到 static/icons/
+      # PWA 图标：由 static/icon.svg 生成 192/512/maskable PNG 到 static/icons/（脚本内嵌，不依赖仓库里的其他文件）
       - name: Generate PWA icons
         run: |
+          test -f static/icon.svg || { echo "::error::找不到 static/icon.svg"; exit 1; }
           mkdir -p /tmp/icongen && cd /tmp/icongen && npm init -y >/dev/null && npm i sharp
-          cd "$GITHUB_WORKSPACE" && SHARP_DIR=/tmp/icongen node scripts/gen-icons.mjs
+          cd "$GITHUB_WORKSPACE"
+          cat > /tmp/gen-icons.cjs <<'JS'
+          const sharp = require('/tmp/icongen/node_modules/sharp');
+          const fs = require('fs');
+          (async () => {
+            const src = 'static/icon.svg';
+            fs.mkdirSync('static/icons', { recursive: true });
+            const bg = { r: 0, g: 0, b: 0, alpha: 0 };
+            for (const s of [192, 512]) {
+              await sharp(src, { density: 384 }).resize(s, s, { fit: 'contain', background: bg }).png().toFile('static/icons/icon-' + s + '.png');
+            }
+            const inner = await sharp(src, { density: 384 }).resize(410, 410, { fit: 'contain', background: bg }).png().toBuffer();
+            await sharp({ create: { width: 512, height: 512, channels: 4, background: '#415F91' } })
+              .composite([{ input: inner, gravity: 'center' }]).png().toFile('static/icons/icon-maskable-512.png');
+            console.log('icons generated');
+          })().catch(e => { console.error(e); process.exit(1); });
+          JS
+          node /tmp/gen-icons.cjs
+          ls -l static/icons
 
       - name: Build
         run: |
@@ -81,10 +124,11 @@ jobs:
           path: dist/*
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/') || inputs.publish
+        if: github.event_name == 'push' || inputs.publish
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.info.outputs.version }}
+          target_commitish: ${{ github.sha }}
           name: v${{ steps.info.outputs.version }}
           generate_release_notes: true
           files: |
