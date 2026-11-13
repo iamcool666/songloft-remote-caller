@@ -108,6 +108,12 @@ jobs:
           node /tmp/gen-icons.cjs
           ls -l static/icons
 
+      # 把页面右下角的版本号占位符替换成 plugin.json 的 version（只改构建副本，不提交）
+      - name: Inject version into page
+        run: |
+          sed -i "s/__PLUGIN_VERSION__/${{ steps.info.outputs.version }}/g" static/index.html
+          grep -n "var v = " static/index.html
+
       - name: Build
         run: |
           if   [ -f pnpm-lock.yaml ]; then pnpm run build
@@ -150,7 +156,7 @@ jobs:
             fs.writeFileSync('/tmp/manifest.json',JSON.stringify(m,null,2)+'\n');
           "
           cp plugin.json /tmp/plugin.json
-          git checkout -- plugin.json
+          git checkout -- plugin.json static/index.html
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git pull --rebase origin main
