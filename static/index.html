@@ -681,131 +681,16 @@
             }
             preloadMicPermission();
 
-            // ===== 登录 / 令牌管理 =====
-            // 登录接口：POST /api/v1/auth/login {username,password} -> {access_token, refresh_token}
-            // 刷新接口：POST /api/v1/auth/refresh {refresh_token}（访问令牌 7 天，刷新令牌 30 天，刷新时轮换）
-            const K = { tok: 'rc_token', ref: 'rc_refresh', user: 'rc_user', pass: 'rc_pass', rem: 'rc_remember' };
-            const lsGet = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
-            const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
-            const lsDel = k => { try { localStorage.removeItem(k); } catch (e) {} };
-
-            // 本页登录得到的令牌优先；没有时用宿主注入的令牌
-            function getToken() {
-                const t = lsGet(K.tok);
-                if (t) return t;
-                try { return getAuthToken() || ''; } catch (e) { return ''; }
-            }
-            function saveTokens(d) {
-                const src = (d && d.data && typeof d.data === 'object') ? d.data : d;
-                const t = src && src.access_token, r = src && src.refresh_token;
-                if (t) lsSet(K.tok, t);
-                if (r) lsSet(K.ref, r);
-                return !!t;
-            }
-            async function postJson(path, body) {
-                const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-                let d = null;
-                try { d = await r.json(); } catch (e) {}
-                return { r, d };
-            }
-            async function doLogin(u, p) {
-                const { r, d } = await postJson('/api/v1/auth/login', { username: u, password: p });
-                return { ok: r.ok && saveTokens(d), status: r.status, data: d };
-            }
-            async function doRefresh() {
-                const rt = lsGet(K.ref);
-                if (!rt) return false;
-                try {
-                    const { r, d } = await postJson('/api/v1/auth/refresh', { refresh_token: rt });
-                    if (r.ok && saveTokens(d)) return true;
-                } catch (e) { return false; }
-                lsDel(K.ref);
-                return false;
-            }
-            // 令牌失效后的静默恢复：先用刷新令牌，不行再用已记住的账号密码
-            let reauthPromise = null;
-            function reauth() {
-                if (!reauthPromise) {
-                    reauthPromise = (async () => {
-                        lsDel(K.tok);
-                        if (await doRefresh()) return true;
-                        if (lsGet(K.rem) === '1' && lsGet(K.user) && lsGet(K.pass)) {
-                            try { if ((await doLogin(lsGet(K.user), lsGet(K.pass))).ok) return true; } catch (e) {}
-                        }
-                        return false;
-                    })().finally(() => { reauthPromise = null; });
-                }
-                return reauthPromise;
-            }
-
-            function showLogin(msg) {
-                let ov = document.getElementById('rc-login-overlay');
-                if (!ov) {
-                    ov = document.createElement('div');
-                    ov.id = 'rc-login-overlay';
-                    ov.style.cssText = 'position:fixed;inset:0;z-index:1000;background:var(--md-surface);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;touch-action:auto;';
-                    const field = 'height:46px;border-radius:12px;border:1.5px solid var(--md-outline);padding:0 14px;font-size:16px;background:var(--md-surface);color:var(--md-on-surface);outline:none;box-sizing:border-box;width:100%;-webkit-user-select:text;user-select:text;touch-action:auto;';
-                    ov.innerHTML = '<div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:14px;">'
-                        + '<div style="font-size:20px;font-weight:bold;text-align:center;color:var(--md-on-surface);">登录 Songloft</div>'
-                        + '<input id="rc-user" autocomplete="username" autocapitalize="off" autocorrect="off" placeholder="账户" style="' + field + '">'
-                        + '<input id="rc-pass" type="password" autocomplete="current-password" placeholder="密码" style="' + field + '">'
-                        + '<label style="display:flex;align-items:center;gap:10px;font-size:15px;color:var(--md-on-surface);padding:4px 2px;touch-action:manipulation;">'
-                        + '<input id="rc-rem" type="checkbox" style="width:20px;height:20px;margin:0;accent-color:var(--md-primary);">记住密码</label>'
-                        + '<button id="rc-login" class="btn btn-filled" style="width:100%;">登录</button>'
-                        + '<div id="rc-login-msg" style="color:var(--md-error);font-size:13px;text-align:center;min-height:18px;word-break:break-all;"></div>'
-                        + '</div>';
-                    document.body.appendChild(ov);
-                    const $ = id => document.getElementById(id);
-                    $('rc-user').value = lsGet(K.user);
-                    $('rc-pass').value = lsGet(K.pass);
-                    $('rc-rem').checked = lsGet(K.rem) !== '0';          // 默认勾选
-                    const submit = async () => {
-                        const u = $('rc-user').value.trim(), pw = $('rc-pass').value, m = $('rc-login-msg');
-                        if (!u || !pw) { m.textContent = '请输入账户和密码'; return; }
-                        m.textContent = '登录中…';
-                        try {
-                            const r = await doLogin(u, pw);
-                            if (r.ok) {
-                                if ($('rc-rem').checked) { lsSet(K.user, u); lsSet(K.pass, pw); lsSet(K.rem, '1'); }
-                                else { lsSet(K.user, u); lsDel(K.pass); lsSet(K.rem, '0'); }
-                                ov.remove();
-                                loadDevices();
-                            } else {
-                                m.textContent = '登录失败（' + r.status + '）' + (r.data ? JSON.stringify(r.data).slice(0, 120) : '');
-                            }
-                        } catch (e) { m.textContent = '网络错误：' + e; }
-                    };
-                    $('rc-login').addEventListener('click', submit);
-                    $('rc-pass').addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
-                }
-                if (msg) document.getElementById('rc-login-msg').textContent = msg;
-            }
-
-            async function absoluteFetch(path, method = 'GET', body = null, retried = false) {
+            async function absoluteFetch(path, method = 'GET', body = null) {
                 const headers = { 'Content-Type': 'application/json' };
-                const token = getToken();
+                const token = getAuthToken();
                 if (token) headers['Authorization'] = 'Bearer ' + token;
                 const options = { method, headers };
                 if (body) options.body = JSON.stringify(body);
 
-                let res;
-                const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-                const timer = ctl ? setTimeout(() => ctl.abort(), 15000) : null;
-                if (ctl) options.signal = ctl.signal;
-                try {
-                    res = await fetch(path, options);
-                } catch (e) {
-                    throw { status: 0, payload: null, message: (e && e.name === 'AbortError') ? '请求超时' : String(e) };
-                } finally {
-                    if (timer) clearTimeout(timer);
-                }
+                const res = await fetch(path, options);
                 let data;
                 try { data = await res.json(); } catch (e) { data = null; }
-                if (res.status === 401 && !retried) {
-                    // 令牌失效：静默刷新/重登，成功则自动重试；否则弹出登录框
-                    if (await reauth()) return absoluteFetch(path, method, body, true);
-                    showLogin();
-                }
                 if (!res.ok) throw { status: res.status, payload: data };
                 return data;
             }
@@ -834,17 +719,14 @@
                         } else {
                             renderAllSpeakers();
                         }
-                    } else {
-                        deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:15px; margin:auto; text-align:center; line-height:1.6; word-break:break-all; padding:0 12px;">加载失败<br><small>' + String(JSON.stringify(res)).slice(0, 100).replace(/</g, '&lt;') + '</small></span>';
                     }
                 } catch (err) {
                     if (err.status === 403 && err.payload && err.payload.detail === 'plugin_disabled') {
                         deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:16px; margin:auto; text-align:center; line-height:1.5;">请先安装并启用<br>“智能音箱”插件</span>';
                     } else if (err.status === 401 || err.status === 403) {
-                        deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:16px; margin:auto;">请先登录</span>';
-                        showLogin();
+                        deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:15px; margin:auto; text-align:center; line-height:1.6;">登录已失效<br>请回到 Songloft 点右上角图标<br>重新打开</span>';
                     } else {
-                        deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:16px; margin:auto; text-align:center; line-height:1.6; word-break:break-all; padding:0 12px;">加载失败' + (err && err.status ? '（' + err.status + '）' : '') + '<br><small>' + String((err && (err.message || JSON.stringify(err.payload))) || err).slice(0, 100).replace(/</g, '&lt;') + '</small></span>';
+                        deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:18px; margin:auto;">加载失败' + (err && err.status ? '（' + err.status + '）' : '') + '</span>';
                     }
                 }
             }
