@@ -788,7 +788,17 @@
                 const options = { method, headers };
                 if (body) options.body = JSON.stringify(body);
 
-                const res = await fetch(path, options);
+                let res;
+                const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+                const timer = ctl ? setTimeout(() => ctl.abort(), 15000) : null;
+                if (ctl) options.signal = ctl.signal;
+                try {
+                    res = await fetch(path, options);
+                } catch (e) {
+                    throw { status: 0, payload: null, message: (e && e.name === 'AbortError') ? '请求超时' : String(e) };
+                } finally {
+                    if (timer) clearTimeout(timer);
+                }
                 let data;
                 try { data = await res.json(); } catch (e) { data = null; }
                 if (res.status === 401 && !retried) {
@@ -824,6 +834,8 @@
                         } else {
                             renderAllSpeakers();
                         }
+                    } else {
+                        deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:15px; margin:auto; text-align:center; line-height:1.6; word-break:break-all; padding:0 12px;">加载失败<br><small>' + String(JSON.stringify(res)).slice(0, 100).replace(/</g, '&lt;') + '</small></span>';
                     }
                 } catch (err) {
                     if (err.status === 403 && err.payload && err.payload.detail === 'plugin_disabled') {
@@ -832,7 +844,7 @@
                         deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:16px; margin:auto;">请先登录</span>';
                         showLogin();
                     } else {
-                        deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:18px; margin:auto;">加载失败' + (err && err.status ? '（' + err.status + '）' : '') + '</span>';
+                        deviceList.innerHTML = '<span style="color:var(--md-error); font-weight:bold; font-size:16px; margin:auto; text-align:center; line-height:1.6; word-break:break-all; padding:0 12px;">加载失败' + (err && err.status ? '（' + err.status + '）' : '') + '<br><small>' + String((err && (err.message || JSON.stringify(err.payload))) || err).slice(0, 100).replace(/</g, '&lt;') + '</small></span>';
                     }
                 }
             }
