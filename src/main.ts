@@ -49,6 +49,47 @@ router.post('/upload', async (req) => {
     }
 });
 
+// ===== 小爱音箱 -> Remote Caller：接收识别后的对话文字 =====
+let inboundMessages: Array<{
+    id: number; timestamp_ms: number; device_name: string; question: string; answer: string;
+}> = [];
+let inboundNextId = 1;
+
+router.post('/receive', async (req) => {
+    try {
+        const bodyText = getReqBodyText(req.body);
+        if (!bodyText) return jsonResponse({ error: '请求体为空' }, 400);
+        const data = JSON.parse(bodyText);
+        const batch = Array.isArray(data.messages) ? data.messages : [];
+        let accepted = 0;
+        for (const entry of batch) {
+            const msg = entry && entry.message ? entry.message : {};
+            const answers = msg && msg.response && Array.isArray(msg.response.answer)
+                ? msg.response.answer : [];
+            for (const item of answers) {
+                const question = String(item && item.question || '').trim();
+                const answer = String(item && item.content || '').trim();
+                if (!question && !answer) continue;
+                inboundMessages.push({
+                    id: inboundNextId++,
+                    timestamp_ms: Number(msg.timestamp_ms) || Date.now(),
+                    device_name: String(entry.device_name || data.device_name || '小爱音箱'),
+                    question,
+                    answer
+                });
+                accepted++;
+            }
+        }
+        if (inboundMessages.length > 100) inboundMessages = inboundMessages.slice(-100);
+        return jsonResponse({ success: true, accepted, total: inboundMessages.length });
+    } catch (e: any) {
+        songloft.log.error('接收小爱对话失败: ' + e.toString());
+        return jsonResponse({ success: false, error: e.toString() }, 400);
+    }
+});
+
+router.get('/messages', () => jsonResponse({ success: true, messages: inboundMessages.slice(-50) }));
+
 // ===== PWA：Service Worker 由后端路由提供（作用域 = 整个插件入口）=====
 // 由插件后端在 /sw.js 返回，作用域才是整个 /api/v1/jsplugin/remote-caller/
 const SW_SOURCE = `
