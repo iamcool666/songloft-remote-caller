@@ -339,6 +339,26 @@
             color: var(--md-on-surface-variant);
         }
 
+        /* ===== 音箱回传消息 ===== */
+        .inbound-panel {
+            width: 100%;
+            max-height: 104px;
+            overflow-y: auto;
+            box-sizing: border-box;
+            border: 1px solid var(--md-outline-variant);
+            border-radius: 12px;
+            padding: 7px 10px;
+            background: var(--md-surface-container-lowest);
+            color: var(--md-on-surface);
+            font-size: 12px;
+            line-height: 1.45;
+            touch-action: pan-y;
+        }
+        .inbound-panel:empty { display: none; }
+        .inbound-title { font-weight: 800; color: var(--md-primary); margin-bottom: 3px; }
+        .inbound-item { padding: 4px 0; border-top: 1px solid var(--md-outline-variant); overflow-wrap: anywhere; }
+        .inbound-meta { opacity: .65; font-size: 10px; }
+
         /* ================= 3. 弹性底部操作区 ================= */
         .bottom-actions {
             display: flex;
@@ -584,6 +604,11 @@
         <!-- 4. 文字内容 -->
         <div class="text-field">
             <textarea id="tts-input" placeholder="🎙️ 按住底部麦克风说话，这里会同步显示文字..."></textarea>
+        </div>
+
+        <div id="inbound-panel" class="inbound-panel" aria-live="polite">
+            <div class="inbound-title">小爱音箱回传</div>
+            <div id="inbound-list">等待音箱消息…</div>
         </div>
 
         <!-- 5. 底部操作区 -->
@@ -852,6 +877,46 @@
             const volumeSlider = document.getElementById('volume-slider');
             const volSliderWrap = document.getElementById('vol-slider-wrap');
             const volTooltip = document.getElementById('vol-tooltip');
+            // ===== 轮询展示小爱音箱识别后的对话文字 =====
+            const inboundList = document.getElementById('inbound-list');
+            const seenInboundIds = new Set();
+            let inboundHasMessage = false;
+            async function pollInboundMessages() {
+                try {
+                    const result = await absoluteFetch('/api/v1/jsplugin/remote-caller/messages');
+                    if (!result || !Array.isArray(result.messages)) return;
+                    for (const item of result.messages) {
+                        if (seenInboundIds.has(item.id)) continue;
+                        seenInboundIds.add(item.id);
+                        inboundHasMessage = true;
+                        const row = document.createElement('div');
+                        row.className = 'inbound-item';
+                        const meta = document.createElement('div');
+                        meta.className = 'inbound-meta';
+                        meta.textContent = (item.device_name || '小爱音箱') + ' · ' +
+                            new Date(item.timestamp_ms || Date.now()).toLocaleTimeString();
+                        const question = document.createElement('div');
+                        question.textContent = '你：' + (item.question || '（无识别文本）');
+                        row.appendChild(meta);
+                        row.appendChild(question);
+                        if (item.answer) {
+                            const answer = document.createElement('div');
+                            answer.textContent = '小爱：' + item.answer;
+                            row.appendChild(answer);
+                        }
+                        inboundList.appendChild(row);
+                    }
+                    while (inboundList.children.length > 30) inboundList.removeChild(inboundList.firstChild);
+                    if (!inboundHasMessage && inboundList.textContent === '等待音箱消息…') {
+                        // 保持初始提示
+                    }
+                } catch (e) {
+                    // 页面初始化/登录期间暂时失败，下一轮继续
+                }
+            }
+            pollInboundMessages();
+            setInterval(pollInboundMessages, 2500);
+
             const audioPlayer = new Audio();
 
             function animateButtonFeedback(btn) {
