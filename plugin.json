@@ -4,15 +4,19 @@
   "version": "0.9.0",
   "description": "小爱音箱趣味互动插件。让智能音箱秒变'家庭对讲机'和'整蛊神器'！",
   "author": "birdstudy-nj",
-  "homepage": "https://github.com/birdstudy-nj/songloft-remote-caller",
+  "homepage": "https://github.com/iamcool666/songloft-remote-caller",
   "license": "Apache-2.0",
   "icon": "icon.png",
   "entryPath": "remote-caller",
   "main": "main.js",
   "minHostVersion": "1.3.0",
-  "permissions": ["storage","fs","command"],
-  "updateUrl": "https://raw.githubusercontent.com/birdstudy-nj/songloft-remote-caller/main/plugin.json",
-  "download_url": "https://github.com/birdstudy-nj/songloft-remote-caller/releases/download/v0.9.0/remote-caller.jsplugin.zip",
-  "entryHash": "",
-  "zipHash": ""
+  "permissions": [
+    "storage",
+    "fs",
+    "command"
+  ],
+  "updateUrl": "https://raw.githubusercontent.com/iamcool666/songloft-remote-caller/main/manifest.json",
+  "entryHash": "d3280f75a633638db00c410e963a16b4dc1ff658bc27dbb6b16115baf1b518de",
+  "zipHash": "9a516e339dcede0d25acad26bc116f56fc13af01e80d62bd51bb2c139b8ffb69",
+  "releaseSource": "86daba593f43f7e66e307e1a22d03708d9e6267e"
 }
