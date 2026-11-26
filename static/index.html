@@ -3,16 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#f9f9ff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark)">
+    <meta name="apple-mobile-web-app-title" content="远程呼唤">
     <title>远程呼唤</title>
     <link rel="icon" href="static/icon.svg" type="image/svg+xml">
-    <link rel="manifest" href="static/manifest.json">
-    <meta name="theme-color" content="#F9F9FF">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="远程呼唤">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="apple-touch-icon" href="static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="static/icon.svg">
     <style>
+        /* ================= 独立 PWA 自动跟随系统深色模式 ================= */
+        @media (prefers-color-scheme: dark) {
+            html:not(.is-iframe) {
+                color-scheme: dark;
+                --md-surface: #111318;
+                --md-surface-container-lowest: #1a1c22;
+                --md-surface-container: #1e2026;
+                --md-surface-variant: #2c2f36;
+                --md-on-surface: #e2e2e9;
+                --md-on-surface-variant: #c4c6d0;
+                --md-primary: #aac7ff;
+                --md-on-primary: #0a305f;
+                --md-outline: #8e9099;
+                --md-outline-variant: #44474e;
+                --md-error: #ffb4ab;
+            }
+            /* 顺手适配历史记录弹窗中对方气泡的硬编码白底 */
+            html:not(.is-iframe) .history-item.remote .history-text {
+                background: #1e2026;
+                color: #e2e2e9;
+            }
+        }
         /* ================= 基础与无滚动自适应 ================= */
         html, body {
             height: 100%;
@@ -119,11 +141,11 @@
             animation: emit-sound 0.7s infinite linear;
         }
         .carousel-container .sound-wave.left {
-            right: calc(50% + clamp(70px, 20vmin, 90px));
+            right: calc(50% + clamp(55px, 15vmin, 70px));
             border-left-color: var(--md-primary);
         }
         .carousel-container .sound-wave.right {
-            left: calc(50% + clamp(70px, 20vmin, 90px));
+            left: calc(50% + clamp(55px, 15vmin, 70px));
             border-right-color: var(--md-primary);
         }
 
@@ -134,7 +156,7 @@
 
         .speaker-scroll-row {
             position: relative;
-            width: clamp(140px, 40vmin, 180px);
+            width: clamp(110px, 30vmin, 140px);
             display: flex;
             gap: 24px;
             overflow-x: auto;
@@ -147,7 +169,7 @@
 
         .speaker-item {
             width: 100%;
-            height: clamp(160px, 35vh, 250px);
+            height: clamp(135px, 28vh, 200px);
             flex-shrink: 0;
             scroll-snap-align: center;
             position: relative;
@@ -159,8 +181,9 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            gap: 16px;
+            justify-content: flex-end;
+            padding: 12px;
+            gap: 8px;
             opacity: 1;
             transition: border-color 0.3s, box-shadow 0.3s;
         }
@@ -181,13 +204,14 @@
             color: #fff;
             padding: 6px 12px;
             border-radius: 20px;
-            font-size: clamp(14px, 4vmin, 18px);
-            font-weight: 900;
-            letter-spacing: 1px;
+            font-size: clamp(14px, 4vw, 16px);
+            font-weight: bold;
+            letter-spacing: 0.5px;
             border: 2px solid #444;
             box-shadow: 0 4px 8px rgba(0,0,0,0.6);
             text-align: center;
-            max-width: 85%;
+            max-width: 100%;
+            box-sizing: border-box;
             word-break: break-word;
             overflow-wrap: break-word;
             transition: background 0.3s, border-color 0.3s;
@@ -232,7 +256,16 @@
             box-sizing: border-box;
             width: 100%;
         }
-        .volume-row .material-symbols-outlined { color: var(--md-on-surface-variant); font-size: clamp(28px, 6vw, 36px); }
+        .volume-row .material-symbols-outlined {
+            color: var(--md-on-surface-variant);
+            font-size: clamp(28px, 6vw, 36px);
+            cursor: pointer;
+            transition: transform 0.15s, color 0.15s;
+        }
+        .volume-row .material-symbols-outlined:active {
+            transform: scale(0.85);
+            color: var(--md-primary);
+        }
 
         .vol-slider-wrap {
             position: relative;
@@ -271,9 +304,12 @@
         }
 
         .radio-group {
+            position: relative;
+            z-index: 25;
             display: flex;
             justify-content: center;
             gap: 6vw;
+            touch-action: manipulation;
         }
         .radio-label {
             display: flex;
@@ -282,6 +318,8 @@
             font-size: clamp(14px, 4vw, 16px);
             font-weight: bold;
             cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
         .radio-label input[type="radio"] {
             width: clamp(20px, 5vw, 24px);
@@ -472,6 +510,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
             transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.1s, background 0.2s;
         }
         .mic-btn .material-symbols-outlined {
@@ -504,7 +543,7 @@
         .mic-wrapper.recording .ripple.delay-1 { animation-delay: 0.4s; }
         .mic-wrapper.recording .ripple.delay-2 { animation-delay: 0.8s; }
 
-        /* ===== 非HTTPS限制蒙版 (透明背景纯文字) ===== */
+        /* ===== 非HTTPS限制蒙版 ===== */
         .mic-overlay {
             position: absolute;
             inset: 10%;
@@ -524,6 +563,21 @@
             box-sizing: border-box;
             padding: 5px;
         }
+        /* ===== 非 HTTPS 降级为纯文本模式 ===== */
+        html.non-https #btn-mic .material-symbols-outlined {
+            display: none;
+        }
+        html.non-https #btn-test {
+            opacity: 0.4;
+            filter: grayscale(1);
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+        html.non-https .radio-label.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
 
         .mic-hint {
             color: var(--md-on-surface-variant);
@@ -539,6 +593,711 @@
             from { transform: translateY(20px) scale(0.5); opacity: 0; }
             to { transform: translateY(0) scale(1); opacity: 1; }
         }
+
+        /* ================= 卡通对话气泡 ================= */
+        #bot-reply-widget {
+            position: absolute;
+            top: 10%;
+            left: calc(50% + clamp(55px, 15vmin, 70px) + 8px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: translateX(-10px) scale(0.85);
+            z-index: 50;
+        }
+        #bot-reply-widget.show {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+        }
+
+        .bot-bubble {
+            pointer-events: auto;
+            cursor: pointer;
+            display: block;
+            background: var(--md-surface);
+            color: var(--md-on-surface);
+            padding: 8px 10px;
+            border: 2px solid var(--md-primary);
+            border-radius: 16px 16px 16px 4px;
+            font-size: 13px;
+            font-weight: bold;
+            max-width: calc(min(50vw, 240px) - clamp(55px, 15vmin, 70px) - 14px);
+            box-shadow: 0 clamp(4px, 1vh, 8px) 0 #274777;
+            word-break: break-word;
+            line-height: 1.45;
+            position: relative;
+        }
+        #bot-reply-text {
+            word-wrap: break-word;
+        }
+        .bot-bubble::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            bottom: 3px;
+            width: 0;
+            height: 0;
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-right: 8px solid var(--md-primary);
+        }
+        .bot-bubble::after {
+            content: '';
+            position: absolute;
+            left: -5px;
+            bottom: 5px;
+            width: 0;
+            height: 0;
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+            border-right: 6px solid var(--md-surface);
+        }
+
+        #bot-mouth-icon {
+            display: inline-flex;
+            align-items: center;
+            vertical-align: -3px;
+            margin-right: 4px;
+            animation: mouth-talk 0.4s infinite alternate ease-in-out;
+        }
+        #bot-mouth-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        @keyframes mouth-talk {
+            0% { transform: scale(0.95); }
+            100% { transform: scale(1.12); }
+        }
+
+        /* ================= 历史记录弹窗样式 ================= */
+        #history-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #history-modal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .history-card {
+            background: var(--md-surface-container-lowest, #fff);
+            width: 100%;
+            max-width: 400px;
+            height: 70vh;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        .history-header {
+            padding: 16px;
+            background: var(--md-primary);
+            color: var(--md-on-primary);
+            font-weight: bold;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .close-history {
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: var(--md-on-primary);
+            font-size: 24px;
+            line-height: 1;
+            padding: 0 8px;
+        }
+        .history-content {
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            flex: 1;
+        }
+        .history-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .history-time {
+            font-size: 11px;
+            color: var(--md-on-surface-variant, #888);
+            align-self: center;
+            margin-bottom: 4px;
+        }
+        .history-bubble-wrap {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .history-item.local .history-bubble-wrap {
+            flex-direction: row-reverse;
+        }
+        .history-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+        .history-item.local .history-icon svg {
+            fill: var(--md-primary);
+        }
+        .history-text {
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: bold;
+            max-width: 75%;
+            word-break: break-word;
+            line-height: 1.4;
+        }
+        .history-item.local .history-text {
+            background: var(--md-primary);
+            color: var(--md-on-primary);
+            border-radius: 12px 0 12px 12px;
+        }
+        .history-item.remote .history-text {
+            background: #ffffff;
+            color: #222;
+            border: 2px solid var(--md-primary);
+            border-radius: 0 12px 12px 12px;
+        }
+
+        /* ================= 动态巡逻小图标 ================= */
+        .mascot-track {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            pointer-events: none;
+            z-index: 15;
+        }
+        .mascot-outer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            animation: mascot-patrol 8s linear infinite;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        .mascot-outer.paused,
+        .mascot-inner.paused {
+            animation-play-state: paused !important;
+        }
+
+        .mascot-menu-icon {
+            position: absolute;
+            bottom: 0;
+            left: -48px;
+            width: 28px;
+            height: 28px;
+            background: var(--md-surface);
+            border: 2px solid var(--md-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: background 0.2s, transform 0.2s;
+        }
+        .mascot-outer:active .mascot-menu-icon {
+            background: var(--md-surface-variant);
+            transform: scale(0.9);
+        }
+
+        .mascot-inner {
+            position: absolute;
+            bottom: 0;
+            left: -16px;
+            width: 32px;
+            height: 32px;
+            animation: mascot-wobble 0.5s alternate infinite ease-in-out;
+            filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.35));
+        }
+
+        @keyframes mascot-patrol {
+            0%   { transform: translateX(calc(clamp(40px, 12.5vmin, 70px) + 10px)) scaleX(1); }
+            45%  { transform: translateX(calc(min(50vw, 240px) - 36px)) scaleX(1); }
+            50%  { transform: translateX(calc(min(50vw, 240px) - 36px)) scaleX(-1); }
+            95%  { transform: translateX(calc(clamp(40px, 12.5vmin, 70px) + 10px)) scaleX(-1); }
+            100% { transform: translateX(calc(clamp(40px, 12.5vmin, 70px) + 10px)) scaleX(1); }
+        }
+        @keyframes mascot-wobble {
+            0%   { transform: rotate(-25deg) translateY(0); }
+            100% { transform: rotate(25deg) translateY(-8px); }
+        }
+
+        /* ================= 快捷菜单弹窗样式 ================= */
+        #shortcut-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(2px);
+            z-index: 10001;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        #shortcut-modal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .shortcut-card {
+            position: absolute;
+            background: var(--md-surface-container, #f3f4f6);
+            border: 2px solid var(--md-primary);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            min-width: 240px;
+            box-sizing: border-box;
+            box-shadow: 0 10px 40px rgba(39,71,119, 0.4);
+            transform: translateX(-50%) scale(0.8) translateY(20px);
+            transform-origin: bottom center;
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            overflow: hidden;
+        }
+        #shortcut-modal.show .shortcut-card {
+            transform: translateX(-50%) scale(1) translateY(0);
+        }
+        .shortcut-header {
+            background: var(--md-primary);
+            color: var(--md-on-primary);
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .shortcut-body {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .shortcut-btn {
+            background: var(--md-surface-container-lowest, #fff);
+            border: 1px solid var(--md-outline-variant);
+            color: var(--md-on-surface);
+            font-size: 15px;
+            font-weight: bold;
+            padding: 12px 16px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .shortcut-btn:active {
+            transform: scale(0.96);
+            border-color: var(--md-primary);
+            background: var(--md-surface-variant);
+        }
+        .btn-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .btn-left .material-symbols-outlined {
+            color: var(--md-primary);
+            font-size: 22px;
+        }
+        .shortcut-btn .arrow {
+            color: var(--md-outline);
+            font-size: 20px;
+        }
+        .about-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            line-height: 1.2;
+        }
+        .version-text {
+            font-size: 11px;
+            color: var(--md-on-surface-variant);
+            font-weight: normal;
+            margin-top: 4px;
+        }
+
+        /* ================= PWA 安装动画指引遮罩 ================= */
+        #pwa-guide-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.72);
+            backdrop-filter: blur(4px);
+            z-index: 10002;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 20px 20px 28px 20px;
+            box-sizing: border-box;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #pwa-guide-modal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .pwa-guide-card {
+            width: 100%;
+            max-width: 360px;
+            background: var(--md-surface);
+            border: 2px solid var(--md-primary);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+            transform: translateY(30px) scale(0.95);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            margin-bottom: 18px;
+        }
+        #pwa-guide-modal.show .pwa-guide-card {
+            transform: translateY(0) scale(1);
+        }
+        .pwa-guide-header {
+            background: var(--md-primary);
+            color: var(--md-on-primary);
+            padding: 14px 18px;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .pwa-guide-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pwa-guide-close {
+            background: none;
+            border: none;
+            color: var(--md-on-primary);
+            font-size: 24px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        .pwa-guide-steps {
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .pwa-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--md-surface-container-lowest, #fff);
+            border: 1px solid var(--md-outline-variant);
+            border-radius: 14px;
+            padding: 10px 12px;
+            color: var(--md-on-surface);
+            font-size: 14px;
+            font-weight: bold;
+            opacity: 0;
+            transform: translateX(-12px);
+        }
+        #pwa-guide-modal.show .pwa-step {
+            animation: pwa-step-in 0.45s forwards cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        #pwa-guide-modal.show .pwa-step:nth-child(1) { animation-delay: 0.1s; }
+        #pwa-guide-modal.show .pwa-step:nth-child(2) { animation-delay: 0.25s; }
+        #pwa-guide-modal.show .pwa-step:nth-child(3) { animation-delay: 0.4s; }
+
+        .pwa-step-num {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--md-primary);
+            color: var(--md-on-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+        .pwa-step-icon {
+            color: var(--md-primary);
+            font-size: 20px;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .pwa-step-badge {
+            display: inline-block;
+            background: var(--md-primary);
+            color: var(--md-on-primary);
+            padding: 1px 7px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin: 0 2px;
+            letter-spacing: 1px;
+        }
+        .pwa-guide-btn {
+            width: calc(100% - 36px);
+            margin: 0 18px 16px 18px;
+        }
+        .pwa-pointer-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: bold;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+            animation: pwa-bounce 1.2s infinite ease-in-out;
+        }
+        .pwa-pointer-wrap .material-symbols-outlined {
+            font-size: 36px;
+            color: #ffe082;
+            filter: drop-shadow(0 2px 8px rgba(255, 224, 130, 0.6));
+        }
+
+        @keyframes pwa-step-in {
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes pwa-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(10px); }
+        }
+        /* ================= 关于插件弹窗样式 (新版) ================= */
+        #about-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(4px);
+            z-index: 10002;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+            padding: 18px;
+            box-sizing: border-box;
+        }
+        #about-modal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .about-card {
+            background: var(--md-surface);
+            width: 100%;
+            max-width: 390px;
+            max-height: 82vh;
+            border: 2px solid var(--md-primary);
+            border-radius: 26px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 16px 44px rgba(0, 0, 0, 0.45);
+            transform: scale(0.92) translateY(18px);
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        #about-modal.show .about-card {
+            transform: scale(1) translateY(0);
+        }
+
+        /* 顶部英雄横幅 */
+        .about-hero {
+            position: relative;
+            background: var(--md-primary);
+            color: var(--md-on-primary);
+            padding: 18px 18px 16px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+        .about-hero-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.92);
+            padding: 5px;
+            box-sizing: border-box;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+            flex-shrink: 0;
+        }
+        .about-hero-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+            padding-right: 24px;
+        }
+        .about-hero-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 18px;
+            font-weight: 900;
+            line-height: 1.2;
+        }
+        .about-ver-badge {
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 7px;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, 0.2);
+            letter-spacing: 0.3px;
+        }
+        .about-hero-sub {
+            font-size: 12px;
+            opacity: 0.9;
+            line-height: 1.35;
+        }
+        .about-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.18);
+            color: var(--md-on-primary);
+            font-size: 20px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.15s;
+        }
+        .about-close:active {
+            transform: scale(0.9);
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 中间可滚动主体（专门放开 iOS 纵向滚动） */
+        .about-body {
+            padding: 16px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            color: var(--md-on-surface);
+        }
+        .about-slogan {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--md-on-surface);
+            background: var(--md-surface-container, var(--md-surface-container-lowest));
+            border-left: 4px solid var(--md-primary);
+            border-radius: 10px;
+            padding: 10px 12px;
+        }
+        .about-section-title {
+            font-size: 13px;
+            font-weight: 900;
+            color: var(--md-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* 2x2 趣味场景网格 */
+        .about-scene-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .about-scene-item {
+            background: var(--md-surface-container-lowest, #fff);
+            border: 1px solid var(--md-outline-variant);
+            border-radius: 14px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .about-scene-head {
+            font-size: 13px;
+            font-weight: bold;
+            color: var(--md-on-surface);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .about-scene-desc {
+            font-size: 11px;
+            line-height: 1.45;
+            color: var(--md-on-surface-variant);
+        }
+
+        /* 核心特性精简列表 */
+        .about-feature-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .about-feature-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 12px;
+            line-height: 1.45;
+            color: var(--md-on-surface-variant);
+            background: var(--md-surface-container, var(--md-surface-container-lowest));
+            border: 1px solid var(--md-outline-variant);
+            border-radius: 12px;
+            padding: 8px 10px;
+        }
+        .about-feature-row strong {
+            color: var(--md-on-surface);
+        }
+
+        /* 底部常驻双按钮 */
+        .about-footer {
+            padding: 12px 16px 16px 16px;
+            border-top: 1px solid var(--md-outline-variant);
+            background: var(--md-surface);
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .about-link-btn {
+            flex: 1;
+            text-decoration: none;
+            font-size: 13px;
+            height: 42px;
+            border-radius: 21px;
+            padding: 0 10px;
+            box-sizing: border-box;
+            touch-action: manipulation;
+        }
+        .about-link-btn svg {
+            width: 17px;
+            height: 17px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+        .about-link-btn .material-symbols-outlined {
+            font-size: 18px;
+        }
     </style>
 </head>
 <body>
@@ -547,6 +1306,14 @@
         <div class="carousel-container" id="carousel-container">
             <div class="sound-wave left"></div>
             <div class="sound-wave right"></div>
+
+            <!-- 卡通对话气泡 -->
+            <div id="bot-reply-widget">
+                <div class="bot-bubble">
+                    <span id="bot-mouth-icon"></span>
+                    <span id="bot-reply-text"></span>
+                </div>
+            </div>
 
             <button class="nav-btn prev" id="btn-prev-speaker">
                 <span class="material-symbols-outlined">chevron_left</span>
@@ -563,12 +1330,12 @@
 
         <!-- 2. 音量调节 -->
         <div class="volume-row">
-            <span class="material-symbols-outlined">volume_mute</span>
+            <span class="material-symbols-outlined" id="btn-vol-down">volume_mute</span>
             <div class="vol-slider-wrap" id="vol-slider-wrap">
                 <div class="vol-tooltip" id="vol-tooltip">50%</div>
                 <input type="range" id="volume-slider" min="0" max="100" value="50">
             </div>
-            <span class="material-symbols-outlined">volume_up</span>
+            <span class="material-symbols-outlined" id="btn-vol-up">volume_up</span>
         </div>
 
         <!-- 3. 单选按钮 -->
@@ -588,7 +1355,6 @@
 
         <!-- 5. 底部操作区 -->
         <div class="bottom-actions">
-            <!-- 顶行：配置区与倒计时的互斥切换 -->
             <div class="action-row-top">
                 <div class="delay-setting-wrap" id="delay-config-wrap">
                     <span>松手后</span>
@@ -637,41 +1403,247 @@
                     <span class="material-symbols-outlined">mic</span>
                 </button>
 
-                <!-- 非HTTPS限制蒙版 (透明背景纯文字) -->
                 <div id="https-overlay" class="mic-overlay panel-hidden">
                     <span>由于浏览器限制<br>需要 HTTPS<br>才能使用话筒</span>
                 </div>
+
+                <div class="mascot-track">
+                    <div class="mascot-outer" id="mascot-group">
+                        <div class="mascot-menu-icon">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="var(--md-primary)">
+                                <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                            </svg>
+                        </div>
+                        <img src="static/icon.svg" class="mascot-inner" id="mascot-inner" alt="mascot">
+                    </div>
+                </div>
             </div>
+
             <div class="mic-hint" id="mic-hint">按住说话</div>
         </div>
     </div>
 
+    <!-- 历史记录弹窗 -->
+    <div id="history-modal">
+        <div class="history-card">
+            <div class="history-header">
+                <span>对话历史记录</span>
+                <button class="close-history" id="close-history-btn">&times;</button>
+            </div>
+            <div class="history-content" id="history-content"></div>
+        </div>
+    </div>
+
+    <!-- 快捷菜单弹窗 -->
+    <div id="shortcut-modal">
+        <div class="shortcut-card">
+            <div class="shortcut-header">
+                <span class="material-symbols-outlined">explore</span>
+                <span>快捷操作</span>
+            </div>
+            <div class="shortcut-body">
+                <button class="shortcut-btn" id="btn-shortcut-history">
+                    <div class="btn-left">
+                        <span class="material-symbols-outlined">history</span>
+                        <span>对话历史</span>
+                    </div>
+                    <span class="material-symbols-outlined arrow">chevron_right</span>
+                </button>
+                <button class="shortcut-btn" id="btn-shortcut-pwa">
+                    <div class="btn-left">
+                        <span class="material-symbols-outlined">app_shortcut</span>
+                        <span>PWA 模式</span>
+                    </div>
+                    <span class="material-symbols-outlined arrow">chevron_right</span>
+                </button>
+                <button class="shortcut-btn" id="btn-shortcut-about">
+                    <div class="btn-left">
+                        <span class="material-symbols-outlined">info</span>
+                        <div class="about-text">
+                            <span>关于插件</span>
+                            <span class="version-text" data-app-version></span>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined arrow">chevron_right</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 关于插件弹窗 -->
+    <div id="about-modal">
+        <div class="about-card">
+            <div class="about-hero">
+                <img src="static/icon.svg" class="about-hero-icon" alt="远程呼唤">
+                <div class="about-hero-info">
+                    <div class="about-hero-title">
+                        <span>远程呼唤</span>
+                        <span class="about-ver-badge" data-app-version></span>
+                    </div>
+                    <div class="about-hero-sub">小爱音箱趣味互动插件 · Remote Caller</div>
+                </div>
+                <button class="about-close" id="btn-close-about" aria-label="关闭">&times;</button>
+            </div>
+
+            <div class="about-body">
+                <p class="about-slogan">
+                    向家中的小爱音箱远程发送<strong>本尊原音</strong>或<strong>小爱 TTS 播报</strong>，让传统音箱秒变「家庭对讲机」和「整蛊神器」🚀
+                </p>
+
+                <div>
+                    <div class="about-section-title">🎮 趣味应用场景</div>
+                    <div class="about-scene-grid">
+                        <div class="about-scene-item">
+                            <div class="about-scene-head">📻 家庭对讲机</div>
+                            <div class="about-scene-desc">跨房间赛博喊话，吃饭叫人不用扯嗓子</div>
+                        </div>
+                        <div class="about-scene-item">
+                            <div class="about-scene-head">⏰ 夺命连环 Call</div>
+                            <div class="about-scene-desc">音量拉满原音咆哮，专治早上赖床不起</div>
+                        </div>
+                        <div class="about-scene-item">
+                            <div class="about-scene-head">👻 搞怪整蛊</div>
+                            <div class="about-scene-desc">深夜小爱 TTS 悄悄传话，制造科技惊喜</div>
+                        </div>
+                        <div class="about-scene-item">
+                            <div class="about-scene-head">🐱 远程逗宠</div>
+                            <div class="about-scene-desc">出门在外原声呼唤主子，围观歪头杀</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="about-section-title">✨ 核心特性</div>
+                    <div class="about-feature-list">
+                        <div class="about-feature-row">
+                            <span>📱</span>
+                            <span><strong>PWA 独立应用：</strong>Material Design 3 现代风格，支持添加到手机桌面独立运行，自动适配白天 / 黑夜模式。</span>
+                        </div>
+                        <div class="about-feature-row">
+                            <span>🎙️</span>
+                            <span><strong>双模延迟发送：</strong>自由切换本人原音与小爱语音，支持松手后 1~10 秒延迟自动发送（可随时取消）及原音试听。</span>
+                        </div>
+                        <div class="about-feature-row">
+                            <span>💬</span>
+                            <span><strong>实时对话记录：</strong>气泡实时显示对方呼叫小爱的内容，完整留存双方对话记录，随时翻看互动详情。</span>
+                        </div>
+                        <div class="about-feature-row">
+                            <span>🛡️</span>
+                            <span><strong>贴心安全防线：</strong>音量超过 80% 触发二次预警防惊吓，内置 HTTPS 录音环境检测与友好防呆提示。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="about-footer">
+                <a class="btn btn-outlined about-link-btn"
+                   href="https://github.com/birdstudy-nj/songloft-remote-caller"
+                   target="_blank" rel="noopener noreferrer">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+                    </svg>
+                    <span>GitHub 仓库</span>
+                </a>
+                <a class="btn btn-filled about-link-btn"
+                   href="https://github.com/birdstudy-nj/songloft-remote-caller/issues"
+                   target="_blank" rel="noopener noreferrer">
+                    <span class="material-symbols-outlined">bug_report</span>
+                    <span>提交 Issue 反馈</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA 创建动画指引弹窗 -->
+    <div id="pwa-guide-modal">
+        <div class="pwa-guide-card">
+            <div class="pwa-guide-header">
+                <div class="pwa-guide-header-left">
+                    <span class="material-symbols-outlined">install_mobile</span>
+                    <span>请创建 PWA 独立应用</span>
+                </div>
+                <button class="pwa-guide-close" id="btn-close-pwa-guide">&times;</button>
+            </div>
+            <div class="pwa-guide-steps">
+                <div class="pwa-step">
+                    <span class="pwa-step-num">1</span>
+                    <span>点击底部 <span class="pwa-step-badge">•••</span> 菜单</span>
+                    <span class="material-symbols-outlined pwa-step-icon">more_horiz</span>
+                </div>
+                <div class="pwa-step">
+                    <span class="pwa-step-num">2</span>
+                    <span>选择「共享」图标</span>
+                    <span class="material-symbols-outlined pwa-step-icon">ios_share</span>
+                </div>
+                <div class="pwa-step">
+                    <span class="pwa-step-num">3</span>
+                    <span>点击「添加到主屏幕」</span>
+                    <span class="material-symbols-outlined pwa-step-icon">add_box</span>
+                </div>
+            </div>
+            <button class="btn btn-filled pwa-guide-btn" id="btn-ok-pwa-guide">我知道了</button>
+        </div>
+        <div class="pwa-pointer-wrap">
+            <span>点下方浏览器 ••• 菜单</span>
+            <span class="material-symbols-outlined">south</span>
+        </div>
+    </div>
+
     <script>
+        const APP_VERSION = 'v0.9.0';
+
+        // 第一时间截获 URL 参数，并在独立 PWA 窗口下将 iOS 桌面图标动态切换为 icon.png
+        const INITIAL_SEARCH = window.location.search;
+        if (window.parent === window) {
+            const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+            if (appleIcon) {
+                appleIcon.setAttribute('sizes', '180x180');
+                appleIcon.href = 'static/icon.png';
+            }
+        }
+
+        const SVG_AVATAR = `<svg viewBox="0 0 24 24" width="22" height="22">
+            <circle cx="9.5" cy="12" r="7.5" fill="#ffe082" stroke="#222" stroke-width="1.8"/>
+            <path d="M7.5 9.5 L9.5 10.5 L7.5 11.5" fill="none" stroke="#222" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <ellipse cx="12.5" cy="14" rx="2.8" ry="3.4" fill="#ff4d4f" stroke="#222" stroke-width="1.5"/>
+            <path d="M17.5 11 L21 9.5 M18 14 H22 M17.5 17 L21 18.5" stroke="var(--md-primary)" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>`;
+
+        const SVG_MIC = `<svg viewBox="0 0 24 24" width="24" height="24">
+            <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+        </svg>`;
+
         document.addEventListener('DOMContentLoaded', () => {
-            if (window.parent !== window || new URLSearchParams(window.location.search).has('embed')) {
+            document.getElementById('bot-mouth-icon').innerHTML = SVG_AVATAR;
+            document.querySelectorAll('[data-app-version]').forEach(el => {
+                el.textContent = APP_VERSION;
+            });
+
+            if (window.parent !== window || new URLSearchParams(INITIAL_SEARCH).has('embed')) {
                 document.documentElement.classList.add('is-iframe');
                 if (/iPhone/i.test(navigator.userAgent)) {
                     document.querySelector('.remote-caller-app').style.height = 'calc(100% - 10px)';
                     document.querySelector('.remote-caller-app').style.paddingTop = '0px';
                     document.body.style.height = window.innerHeight + 'px';
                     const iosFixStyle = document.createElement('style');
-                    iosFixStyle.innerHTML = `
-                        .speaker-item { height: 220px !important; }
-                    `;
+                    iosFixStyle.innerHTML = `.speaker-item { height: 200px !important; }`;
                     document.head.appendChild(iosFixStyle);
                 }
             }
 
-            const { getAuthToken, announce } = window.SongloftPlugin || {
+            const _pluginApi = window.SongloftPlugin || {
                 getAuthToken: () => '', announce: () => {}
             };
+            const urlAccessToken = new URLSearchParams(INITIAL_SEARCH).get('access_token') || '';
+            const getAuthToken = () => urlAccessToken || _pluginApi.getAuthToken() || '';
+            const announce = _pluginApi.announce;
 
             const isHttps = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             if (!isHttps) {
+                document.documentElement.classList.add('non-https');
                 document.getElementById('https-overlay').classList.remove('panel-hidden');
             }
 
-            // 预授权麦克风，成功后秒关
             async function preloadMicPermission() {
                 if (!isHttps) return;
                 try {
@@ -800,16 +1772,118 @@
                 return data;
             }
 
-            let currentMode = localStorage.getItem('remote_caller_mode') || 'voice';
+            // ====== 小爱音箱实时对话抓取、自动重连与日志兜底 ======
+            let wsConnection = null;
+            let isWsConnected = false;
+            let fallbackTimer = null;
+            let lastProcessedLog = "";
+            let wsReconnectTimer = null;
+            let chatHistory = [];
+
+            function showBotReply(text) {
+                if (!text) return;
+                document.getElementById('bot-reply-text').textContent = text;
+                document.getElementById('bot-reply-widget').classList.add('show');
+            }
+
+            function addHistory(type, text) {
+                chatHistory.push({ type, time: new Date(), text });
+            }
+
+            async function pollLogsFallback() {
+                if (isWsConnected) return;
+                try {
+                    const res = await absoluteFetch('/api/v1/jsplugin/miot-helper/logs');
+                    if (res && res.logs && res.logs.length > 0) {
+                        for (let i = res.logs.length - 1; i >= 0; i--) {
+                            const line = res.logs[i];
+                            const match = line.match(/"([^"]+)"\s*｜\s*小爱答:/);
+                            if (match) {
+                                if (line !== lastProcessedLog) {
+                                    lastProcessedLog = line;
+                                    addHistory('remote', match[1]);
+                                    showBotReply(match[1]);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn("⚠️ 兜底日志轮询请求失败", err);
+                }
+            }
+
+            function startFallbackPolling() {
+                if (!fallbackTimer) {
+                    pollLogsFallback();
+                    fallbackTimer = setInterval(pollLogsFallback, 1000);
+                }
+            }
+
+            function stopFallbackPolling() {
+                if (fallbackTimer) {
+                    clearInterval(fallbackTimer);
+                    fallbackTimer = null;
+                }
+            }
+
+            function initConversationWS() {
+                const token = getAuthToken();
+                if (!token) return;
+
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/jsplugin/miot/conversation/ws?limit=50&access_token=${token}`;
+
+                if (wsConnection) wsConnection.close();
+                wsConnection = new WebSocket(wsUrl);
+
+                wsConnection.onopen = () => {
+                    isWsConnected = true;
+                    stopFallbackPolling();
+                };
+
+                wsConnection.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'message' && msg.data) {
+                            const { query, device_id } = msg.data;
+                            if (selectedDevice && selectedDevice.did !== device_id) return;
+                            if (query) {
+                                addHistory('remote', query);
+                                showBotReply(query);
+                            }
+                        }
+                    } catch (e) {}
+                };
+
+                wsConnection.onerror = () => {};
+
+                wsConnection.onclose = () => {
+                    isWsConnected = false;
+                    startFallbackPolling();
+                    if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+                    wsReconnectTimer = setTimeout(initConversationWS, 5000);
+                };
+            }
+            initConversationWS();
+
+            // ====== 发声模式 ======
+            let currentMode = isHttps ? (localStorage.getItem('remote_caller_mode') || 'voice') : 'tts';
             document.querySelectorAll('input[name="send_mode"]').forEach(radio => {
-                if (radio.value === currentMode) radio.checked = true;
+                if (!isHttps && radio.value === 'voice') {
+                    radio.disabled = true;
+                    radio.closest('.radio-label')?.classList.add('disabled');
+                }
+                radio.checked = (radio.value === currentMode);
                 radio.addEventListener('change', (e) => {
+                    if (!isHttps && e.target.value === 'voice') return;
                     currentMode = e.target.value;
                     localStorage.setItem('remote_caller_mode', currentMode);
                     cancelCountdown();
                 });
             });
 
+            // ====== 状态与 DOM 引用 ======
             let isRecording = false;
             let countdownTimer = null;
             let countdownValue = 0;
@@ -830,6 +1904,8 @@
             let recognition = null;
             let finalTranscript = '';
             let originalStream = null;
+            let recordStartTime = 0;
+            let recordedDurationMs = 3000;
 
             const carouselContainer = document.getElementById('carousel-container');
             const deviceList = document.getElementById('device-list');
@@ -864,6 +1940,7 @@
                 }, 1000);
             }
 
+            // ====== 音量控制（禁单击防误触 + 公共提交 + 左右 ±5%） ======
             function updateVolumeColor() {
                 const val = volumeSlider.value;
                 const hue = 210 - (val * 2.1);
@@ -873,46 +1950,105 @@
                 volTooltip.style.marginLeft = `calc(14px - ${val} * 0.28px)`;
             }
 
-            volumeSlider.addEventListener('input', () => {
-                volSliderWrap.classList.add('sliding');
-                updateVolumeColor();
-            });
-
-            volumeSlider.addEventListener('change', async (e) => {
-                volSliderWrap.classList.remove('sliding');
+            async function commitVolume(targetVol, needConfirm = true) {
                 if (!selectedDevice) return;
-                const vol = parseInt(e.target.value, 10);
-                if (vol > 80) {
-                    if (!confirm(`当前音量将调至 ${vol}%，声音可能会非常大。\n\n确定要调整到这么大吗？`)) {
+                if (needConfirm && targetVol > 80) {
+                    if (!confirm(`当前音量将调至 ${targetVol}%，声音可能会非常大。\n\n确定要调整到这么大吗？`)) {
                         volumeSlider.value = lastValidVolume;
                         updateVolumeColor();
                         return;
                     }
                 }
+                volumeSlider.value = targetVol;
+                updateVolumeColor();
                 try {
                     await absoluteFetch('/api/v1/jsplugin/miot/mina/volume', 'POST', {
                         account_id: selectedDevice.aid,
                         device_id: selectedDevice.did,
-                        volume: vol
+                        volume: targetVol
                     });
-                    lastValidVolume = vol;
-                    selectedDevice.volume = vol;
+                    lastValidVolume = targetVol;
+                    selectedDevice.volume = targetVol;
                 } catch (err) {
                     announce("音量调节请求失败");
                     volumeSlider.value = lastValidVolume;
                     updateVolumeColor();
                 }
+            }
+
+            let volPointerDown = false;
+            let volHasDragged = false;
+            let volStartX = 0;
+            let volStartValue = lastValidVolume;
+
+            volumeSlider.addEventListener('pointerdown', (e) => {
+                volPointerDown = true;
+                volHasDragged = false;
+                volStartX = e.clientX;
+                volStartValue = lastValidVolume;
             });
 
-            volumeSlider.addEventListener('pointerup', () => volSliderWrap.classList.remove('sliding'));
-            volumeSlider.addEventListener('pointerdown', () => volSliderWrap.classList.add('sliding'));
+            volumeSlider.addEventListener('pointermove', (e) => {
+                if (!volPointerDown) return;
+                if (!volHasDragged && Math.abs(e.clientX - volStartX) > 8) {
+                    volHasDragged = true;
+                    volSliderWrap.classList.add('sliding');
+                }
+            });
+
+            function endVolPointer() {
+                volPointerDown = false;
+                volSliderWrap.classList.remove('sliding');
+                if (!volHasDragged) {
+                    volumeSlider.value = volStartValue;
+                    updateVolumeColor();
+                }
+            }
+            volumeSlider.addEventListener('pointerup', endVolPointer);
+            volumeSlider.addEventListener('pointercancel', endVolPointer);
+
+            volumeSlider.addEventListener('input', () => {
+                if (!volHasDragged) {
+                    volumeSlider.value = volStartValue;
+                    return;
+                }
+                volSliderWrap.classList.add('sliding');
+                updateVolumeColor();
+            });
+
+            volumeSlider.addEventListener('change', (e) => {
+                volSliderWrap.classList.remove('sliding');
+                if (!volHasDragged) {
+                    volumeSlider.value = volStartValue;
+                    updateVolumeColor();
+                    return;
+                }
+                commitVolume(parseInt(e.target.value, 10), true);
+            });
+
             updateVolumeColor();
 
+            let volTipTimer = null;
+            async function stepVolume(delta) {
+                if (!selectedDevice) return announce("当前音箱离线或未选择设备");
+                const currentVol = parseInt(volumeSlider.value, 10) || 0;
+                const targetVol = Math.max(0, Math.min(100, currentVol + delta));
+                if (targetVol === currentVol) return;
+
+                volSliderWrap.classList.add('sliding');
+                clearTimeout(volTipTimer);
+                volTipTimer = setTimeout(() => volSliderWrap.classList.remove('sliding'), 800);
+
+                await commitVolume(targetVol, delta > 0);
+            }
+            document.getElementById('btn-vol-down').addEventListener('click', () => stepVolume(-5));
+            document.getElementById('btn-vol-up').addEventListener('click', () => stepVolume(5));
+
+            // ====== 延迟下拉菜单 ======
             function toggleDelayDropdown() {
                 delayOptions.classList.toggle('show');
                 delayBackdrop.classList.toggle('show');
             }
-
             delayTrigger.addEventListener('click', toggleDelayDropdown);
             delayBackdrop.addEventListener('click', toggleDelayDropdown);
 
@@ -934,12 +2070,12 @@
                 });
             });
 
-            if (autoDelayValue === 0) {
-                btnManualSend.classList.remove('panel-hidden');
-                btnResend.classList.add('panel-hidden');
-            } else {
-                btnManualSend.classList.add('panel-hidden');
-                btnResend.classList.remove('panel-hidden');
+            // ====== 音箱轮播与设备加载 ======
+            let progScrollTimer = null;
+            function lockProgrammaticScroll(ms = 450) {
+                isProgrammaticScroll = true;
+                clearTimeout(progScrollTimer);
+                progScrollTimer = setTimeout(() => { isProgrammaticScroll = false; }, ms);
             }
 
             function renderAllSpeakers() {
@@ -949,10 +2085,10 @@
                     selectedDevice = null;
                     return;
                 }
-                let virtualDevices = originalDevices;
-                if (originalDevices.length > 1) {
-                    virtualDevices = Array(CLONE_SETS).fill(originalDevices).flat();
-                }
+                const virtualDevices = originalDevices.length > 1
+                    ? Array(CLONE_SETS).fill(originalDevices).flat()
+                    : originalDevices;
+
                 virtualDevices.forEach((device) => {
                     const isOnline = device.presence === 'online';
                     const btn = document.createElement('div');
@@ -963,28 +2099,33 @@
                     `;
                     deviceList.appendChild(btn);
                 });
-                if (originalDevices.length > 1) {
-                    virtualCurrentIndex = Math.floor(CLONE_SETS / 2) * originalDevices.length + currentDeviceIndex;
-                } else {
-                    virtualCurrentIndex = 0;
-                }
-                updateCarouselSelection(true, false);
+
+                virtualCurrentIndex = originalDevices.length > 1
+                    ? Math.floor(CLONE_SETS / 2) * originalDevices.length + currentDeviceIndex
+                    : 0;
+
+                // 等浏览器完成布局后再瞬移到上次保存的音箱，并加锁防止 scroll 事件误覆盖
+                lockProgrammaticScroll(400);
+                requestAnimationFrame(() => {
+                    updateCarouselSelection(true, false, false);
+                });
             }
 
-            function updateCarouselSelection(doScroll = true, smooth = true) {
+            function updateCarouselSelection(doScroll = true, smooth = true, saveToStorage = false) {
                 const items = deviceList.querySelectorAll('.speaker-item');
                 items.forEach((item, idx) => {
                     if (idx === virtualCurrentIndex) {
                         item.classList.add('center');
-                        selectedDevice = originalDevices[idx % originalDevices.length].presence === 'online' ? originalDevices[idx % originalDevices.length] : null;
+                        const dev = originalDevices[idx % originalDevices.length];
+                        selectedDevice = dev.presence === 'online' ? dev : null;
 
-                        if (selectedDevice) {
-                            localStorage.setItem('remote_caller_last_device', selectedDevice.did);
-                            if (selectedDevice.volume !== undefined) {
-                                volumeSlider.value = selectedDevice.volume;
-                                lastValidVolume = selectedDevice.volume;
-                                updateVolumeColor();
-                            }
+                        if (dev.volume !== undefined) {
+                            volumeSlider.value = dev.volume;
+                            lastValidVolume = dev.volume;
+                            updateVolumeColor();
+                        }
+                        if (saveToStorage) {
+                            localStorage.setItem('remote_caller_last_device', String(dev.did));
                         }
                         if (doScroll) {
                             deviceList.scrollTo({
@@ -1012,33 +2153,32 @@
                         if (virtualCurrentIndex !== closestIdx) {
                             virtualCurrentIndex = closestIdx;
                             currentDeviceIndex = virtualCurrentIndex % originalDevices.length;
-                            updateCarouselSelection(false);
+                            updateCarouselSelection(false, true, true);
                         }
                     }
                     const len = originalDevices.length;
                     if (virtualCurrentIndex < len || virtualCurrentIndex >= (CLONE_SETS - 1) * len) {
                         virtualCurrentIndex = Math.floor(CLONE_SETS / 2) * len + currentDeviceIndex;
-                        updateCarouselSelection(true, false);
+                        lockProgrammaticScroll(250);
+                        updateCarouselSelection(true, false, false);
                     }
                 }, 150);
             });
 
             btnPrev.addEventListener('click', () => {
                 if (originalDevices.length <= 1 || isProgrammaticScroll) return;
-                isProgrammaticScroll = true;
-                setTimeout(() => isProgrammaticScroll = false, 400);
+                lockProgrammaticScroll(450);
                 virtualCurrentIndex++;
                 currentDeviceIndex = virtualCurrentIndex % originalDevices.length;
-                updateCarouselSelection(true, true);
+                updateCarouselSelection(true, true, true);
             });
 
             btnNext.addEventListener('click', () => {
                 if (originalDevices.length <= 1 || isProgrammaticScroll) return;
-                isProgrammaticScroll = true;
-                setTimeout(() => isProgrammaticScroll = false, 400);
+                lockProgrammaticScroll(450);
                 virtualCurrentIndex = (virtualCurrentIndex - 1 + CLONE_SETS * originalDevices.length) % (CLONE_SETS * originalDevices.length);
                 currentDeviceIndex = virtualCurrentIndex % originalDevices.length;
-                updateCarouselSelection(true, true);
+                updateCarouselSelection(true, true, true);
             });
 
             async function loadDevices() {
@@ -1059,13 +2199,11 @@
                         });
                         if (originalDevices.length > 0) {
                             const savedDid = localStorage.getItem('remote_caller_last_device');
-                            let targetIdx = savedDid ? originalDevices.findIndex(d => d.did === savedDid) : -1;
+                            let targetIdx = savedDid ? originalDevices.findIndex(d => String(d.did) === savedDid) : -1;
                             if (targetIdx === -1) targetIdx = originalDevices.findIndex(d => d.presence === 'online');
-                            if(targetIdx !== -1) currentDeviceIndex = targetIdx;
-                            renderAllSpeakers();
-                        } else {
-                            renderAllSpeakers();
+                            if (targetIdx !== -1) currentDeviceIndex = targetIdx;
                         }
+                        renderAllSpeakers();
                     }
                 } catch (err) {
                     if (err.status === 403 && err.payload && err.payload.detail === 'plugin_disabled') {
@@ -1080,7 +2218,7 @@
             }
             loadDevices();
 
-            // ====== 语音部分：提取自老版本逻辑，不中断麦克风 ======
+            // ====== 录音与语音识别 ======
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (SpeechRecognition) {
                 recognition = new SpeechRecognition();
@@ -1105,22 +2243,23 @@
                 isRecording = true;
                 micWrapper.classList.add('recording');
                 micHint.textContent = '松开发送🚀';
+                btnResend.innerHTML = '<span class="material-symbols-outlined">replay</span> 再次发送';
                 cancelCountdown();
+                recordStartTime = Date.now();
 
                 if (recognition) {
                     finalTranscript = '';
                     ttsInput.value = '';
-                    try { recognition.start(); } catch(e) {}
+                    try { recognition.start(); } catch (e) {}
                 }
 
                 try {
-                    // 全局保留流，如果尚未获取则请求（不切断、不重复请求）
                     if (!originalStream) {
                         originalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     }
                     mediaRecorder = new MediaRecorder(originalStream);
                     audioChunks = [];
-                    mediaRecorder.ondataavailable = e => { if(e.data.size > 0) audioChunks.push(e.data); };
+                    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                     mediaRecorder.start();
                 } catch (err) {
                     announce("无法访问麦克风");
@@ -1128,14 +2267,15 @@
             }
 
             function stopRecording(e) {
-                if (e && e.type === 'touchend' && isRecording) e.preventDefault();
                 if (!isRecording) return;
+                if (e && e.type === 'touchend') e.preventDefault();
 
                 isRecording = false;
                 micWrapper.classList.remove('recording');
                 micHint.textContent = '按住说话';
+                recordedDurationMs = Date.now() - recordStartTime;
 
-                if (recognition) try { recognition.stop(); } catch(e) {}
+                if (recognition) try { recognition.stop(); } catch (e) {}
 
                 if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                     mediaRecorder.onstop = () => {
@@ -1143,7 +2283,6 @@
                         checkAndTriggerSend();
                     };
                     mediaRecorder.stop();
-                    // 这里删除了原版的 track.stop()，实现“松开不退出麦克风”
                 } else {
                     checkAndTriggerSend();
                 }
@@ -1161,6 +2300,7 @@
             window.addEventListener('touchcancel', stopRecording);
             window.addEventListener('mouseup', stopRecording);
 
+            // ====== 倒计时与发送 ======
             function restoreDelayUI() {
                 countdownBadge.classList.add('panel-hidden');
                 delayConfigWrap.classList.remove('panel-hidden');
@@ -1205,7 +2345,7 @@
                 } catch (e) {}
 
                 const targetSpeaker = deviceList.querySelectorAll('.speaker-item')[virtualCurrentIndex];
-                if(targetSpeaker && !targetSpeaker.classList.contains('offline')) {
+                if (targetSpeaker && !targetSpeaker.classList.contains('offline')) {
                     carouselContainer.classList.add('playing');
                     setTimeout(() => carouselContainer.classList.remove('playing'), 2500);
                 }
@@ -1213,6 +2353,7 @@
                 if (currentMode === 'tts') {
                     const text = ttsInput.value.trim();
                     if (!text) return;
+                    addHistory('local', text);
                     try {
                         await absoluteFetch('/api/v1/jsplugin/miot/mina/tts', 'POST', {
                             account_id: selectedDevice.aid,
@@ -1220,9 +2361,13 @@
                             text: text
                         });
                         announce("小爱语音指令已发送");
-                    } catch (e) { announce("发送失败"); }
+                    } catch (e) {
+                        announce("发送失败");
+                    }
                 } else {
                     if (!recordedBlob) return announce("未录制声音");
+                    const text = ttsInput.value.trim() || "🎤 [语音指令]";
+                    addHistory('local', text);
                     announce("音频处理中，请稍候...");
 
                     const reader = new FileReader();
@@ -1230,19 +2375,13 @@
                     reader.onloadend = async () => {
                         try {
                             const uploadRes = await absoluteFetch('/api/v1/jsplugin/remote-caller/upload', 'POST', {
-                                audio_base64: reader.result.split(',')[1]
-                            });
-                            if (!uploadRes || !uploadRes.success) return announce("录音上传失败");
-
-                            const token = getAuthToken();
-                            // 使用新的免密 /static/ 路径发送给小爱音箱
-                            let noCacheUrl = window.location.origin + '/api/v1/jsplugin/remote-caller/static/voice.mp3?t=' + Date.now();
-
-                            await absoluteFetch('/api/v1/jsplugin/miot/mina/play-url', 'POST', {
+                                audio_base64: reader.result.split(',')[1],
                                 account_id: selectedDevice.aid,
                                 device_id: selectedDevice.did,
-                                url: noCacheUrl
+                                duration_ms: recordedDurationMs,
+                                origin: window.location.origin
                             });
+                            if (!uploadRes || !uploadRes.success) return announce("录音发送失败");
                             announce("原音已发送");
                         } catch (e) {
                             announce("推送失败");
@@ -1251,15 +2390,246 @@
                 }
             }
 
-            btnManualSend.addEventListener('click', () => { animateButtonFeedback(btnManualSend); cancelCountdown(); sendData(); });
-            btnResend.addEventListener('click', () => { animateButtonFeedback(btnResend); cancelCountdown(); sendData(); });
+            ttsInput.addEventListener('input', () => {
+                if (!isRecording) {
+                    if (currentMode !== 'tts') {
+                        currentMode = 'tts';
+                        localStorage.setItem('remote_caller_mode', 'tts');
+                        const ttsRadio = document.querySelector('input[name="send_mode"][value="tts"]');
+                        if (ttsRadio) ttsRadio.checked = true;
+                    }
+                    btnResend.innerHTML = '<span class="material-symbols-outlined">send</span> 发送文本';
+                    if (autoDelayValue === 0) {
+                        btnManualSend.innerHTML = '<span class="material-symbols-outlined">send</span> 发送文本';
+                    }
+                }
+            });
+
+            btnManualSend.addEventListener('click', () => {
+                animateButtonFeedback(btnManualSend);
+                cancelCountdown();
+                sendData();
+            });
+
+            if (!isHttps) {
+                btnTest.disabled = true;
+                btnResend.innerHTML = '<span class="material-symbols-outlined">send</span> 发送文本';
+                btnManualSend.innerHTML = '<span class="material-symbols-outlined">send</span> 发送文本';
+                ttsInput.placeholder = '⌨️ 非 HTTPS 环境仅支持文字发送，请输入要播报的内容...';
+                micHint.textContent = '仅支持文本发送';
+            }
+
+            btnResend.addEventListener('click', () => {
+                animateButtonFeedback(btnResend);
+                cancelCountdown();
+                sendData();
+                if (isHttps) {
+                    btnResend.innerHTML = '<span class="material-symbols-outlined">replay</span> 再次发送';
+                }
+            });
+
             btnTest.addEventListener('click', () => {
                 animateButtonFeedback(btnTest);
                 if (recordedBlob) {
                     audioPlayer.src = URL.createObjectURL(recordedBlob);
                     audioPlayer.play();
-                } else { announce("没有可试听的录音"); }
+                } else {
+                    announce("没有可试听的录音");
+                }
             });
+
+            // ====== 历史记录弹窗 ======
+            const historyModal = document.getElementById('history-modal');
+            const historyContent = document.getElementById('history-content');
+
+            document.querySelector('.bot-bubble').addEventListener('click', () => {
+                renderHistory();
+                historyModal.classList.add('show');
+            });
+            document.getElementById('close-history-btn').addEventListener('click', () => {
+                historyModal.classList.remove('show');
+            });
+
+            function renderHistory() {
+                historyContent.innerHTML = '';
+                if (chatHistory.length === 0) {
+                    historyContent.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px;">暂无对话记录</div>';
+                    return;
+                }
+                chatHistory.forEach(item => {
+                    const timeStr = item.time.toLocaleTimeString('zh-CN', { hour12: false });
+                    const iconHtml = item.type === 'local' ? SVG_MIC : SVG_AVATAR;
+                    const div = document.createElement('div');
+                    div.className = `history-item ${item.type}`;
+                    div.innerHTML = `
+                        <div class="history-time">${timeStr}</div>
+                        <div class="history-bubble-wrap">
+                            <div class="history-icon">${iconHtml}</div>
+                            <div class="history-text">${item.text}</div>
+                        </div>
+                    `;
+                    historyContent.appendChild(div);
+                });
+                setTimeout(() => { historyContent.scrollTop = historyContent.scrollHeight; }, 10);
+            }
+
+            // ====== 快捷菜单与动画控制 ======
+            const mascotGroup = document.getElementById('mascot-group');
+            const mascotInner = document.getElementById('mascot-inner');
+            const shortcutModal = document.getElementById('shortcut-modal');
+            const shortcutCard = shortcutModal.querySelector('.shortcut-card');
+
+            mascotGroup.addEventListener('mousedown', (e) => e.stopPropagation());
+            mascotGroup.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: false });
+
+            mascotGroup.addEventListener('click', (e) => {
+                e.stopPropagation();
+                mascotGroup.classList.add('paused');
+                mascotInner.classList.add('paused');
+
+                const rect = mascotGroup.getBoundingClientRect();
+                let cardX = rect.left;
+                const maxRight = window.innerWidth - 130;
+                if (cardX > maxRight) cardX = maxRight;
+                const bottomSpace = window.innerHeight - rect.top + 35;
+
+                shortcutCard.style.left = `${cardX}px`;
+                shortcutCard.style.bottom = `${bottomSpace}px`;
+                shortcutModal.classList.add('show');
+            });
+
+            function closeShortcutMenu() {
+                shortcutModal.classList.remove('show');
+                mascotGroup.classList.remove('paused');
+                mascotInner.classList.remove('paused');
+            }
+
+            shortcutModal.addEventListener('click', (e) => {
+                if (e.target === shortcutModal) closeShortcutMenu();
+            });
+
+            document.getElementById('btn-shortcut-history').addEventListener('click', () => {
+                closeShortcutMenu();
+                renderHistory();
+                historyModal.classList.add('show');
+            });
+
+            // ====== PWA 永久凭证与安装指引 ======
+            const pwaGuideModal = document.getElementById('pwa-guide-modal');
+            const closePwaGuide = () => pwaGuideModal.classList.remove('show');
+            document.getElementById('btn-close-pwa-guide').addEventListener('click', closePwaGuide);
+            document.getElementById('btn-ok-pwa-guide').addEventListener('click', closePwaGuide);
+            pwaGuideModal.addEventListener('click', (e) => {
+                if (e.target === pwaGuideModal) closePwaGuide();
+            });
+
+            const btnShortcutPwa = document.getElementById('btn-shortcut-pwa');
+            let pendingPwaUrl = '';
+
+            btnShortcutPwa.addEventListener('click', async () => {
+                if (btnShortcutPwa.disabled) return;
+                const pwaTextSpan = btnShortcutPwa.querySelector('.btn-left span:last-child');
+
+                if (pendingPwaUrl) {
+                    const urlToOpen = pendingPwaUrl;
+                    pendingPwaUrl = '';
+                    pwaTextSpan.textContent = 'PWA 模式';
+                    closeShortcutMenu();
+                    window.open(urlToOpen, '_blank');
+                    return;
+                }
+
+                // 若当前页面已持有永久 Token，直接还原地址栏并弹出安装指引，避免调接口 403
+                const currentToken = getAuthToken();
+                if (currentToken.startsWith('sl_pat_')) {
+                    closeShortcutMenu();
+                    const restoredUrl = `${window.location.pathname}?access_token=${encodeURIComponent(currentToken)}`;
+                    window.history.replaceState({}, '', restoredUrl);
+                    pwaGuideModal.classList.add('show');
+                    return;
+                }
+
+                btnShortcutPwa.disabled = true;
+                pwaTextSpan.textContent = '正在获取永久token...';
+
+                try {
+                    const listRes = await absoluteFetch('/api/v1/auth/personal-tokens?limit=20&offset=0', 'GET');
+                    const tokens = (listRes && Array.isArray(listRes.tokens)) ? listRes.tokens : [];
+                    const existingTokens = tokens.filter(t => t.name === 'remote-caller' && !t.revoked_at);
+                    for (const t of existingTokens) {
+                        await absoluteFetch(`/api/v1/auth/personal-tokens/${t.id}`, 'DELETE');
+                    }
+
+                    const createRes = await absoluteFetch('/api/v1/auth/personal-tokens', 'POST', {
+                        name: 'remote-caller'
+                    });
+                    const newToken = (createRes && (createRes.token || (createRes.data && createRes.data.token))) || '';
+                    if (!newToken) throw new Error('响应中未找到 token 字段');
+
+                    localStorage.setItem('remote_caller_pending_pwa', JSON.stringify({
+                        token: newToken,
+                        ts: Date.now()
+                    }));
+
+                    const targetUrl = `${window.location.origin}/api/v1/jsplugin/remote-caller/?access_token=${encodeURIComponent(newToken)}`;
+                    const newWin = window.open(targetUrl, '_blank');
+
+                    if (newWin) {
+                        pwaTextSpan.textContent = 'PWA 模式';
+                        btnShortcutPwa.disabled = false;
+                        closeShortcutMenu();
+                    } else {
+                        pendingPwaUrl = targetUrl;
+                        pwaTextSpan.textContent = '点击打开 PWA 页面';
+                        btnShortcutPwa.disabled = false;
+                        announce("凭证已就绪，请再次点击打开 PWA 页面");
+                    }
+                } catch (err) {
+                    console.error('获取永久 Token 失败:', err);
+                    const msg = err?.payload?.detail || err?.message || err?.status || '未知错误';
+                    announce(`获取失败: ${msg}`);
+                    pwaTextSpan.textContent = 'PWA 模式';
+                    btnShortcutPwa.disabled = false;
+                }
+            });
+
+            const aboutModal = document.getElementById('about-modal');
+            const closeAboutModal = () => aboutModal.classList.remove('show');
+
+            document.getElementById('btn-shortcut-about').addEventListener('click', () => {
+                closeShortcutMenu();
+                aboutModal.classList.add('show');
+            });
+
+            document.getElementById('btn-close-about').addEventListener('click', closeAboutModal);
+            aboutModal.addEventListener('click', (e) => {
+                if (e.target === aboutModal) closeAboutModal();
+            });
+
+            // 独立新窗口自动接力还原 URL 并触发 PWA 安装动画指引
+            const isStandalonePWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            if (window.parent === window && !isStandalonePWA) {
+                const pendingRaw = localStorage.getItem('remote_caller_pending_pwa');
+                if (pendingRaw) {
+                    localStorage.removeItem('remote_caller_pending_pwa');
+                    try {
+                        const pending = JSON.parse(pendingRaw);
+                        if (pending && pending.token && (Date.now() - pending.ts < 120000)) {
+                            const restoredUrl = `${window.location.pathname}?access_token=${encodeURIComponent(pending.token)}`;
+                            const ensureRestoredUrl = () => {
+                                if (!window.location.search.includes('access_token=')) {
+                                    window.history.replaceState({}, '', restoredUrl);
+                                }
+                            };
+                            setTimeout(() => {
+                                ensureRestoredUrl();
+                                pwaGuideModal.classList.add('show');
+                            }, 500);
+                            setTimeout(ensureRestoredUrl, 1500);
+                        }
+                    } catch (e) {}
+                }
+            }
         });
     </script>
 
