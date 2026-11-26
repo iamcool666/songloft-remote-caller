@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -63,6 +63,8 @@ function build(snapshot, source, version) {
 
   run('npm', ['install', '--no-package-lock', '--no-audit', '--no-fund'], snapshot);
   run('npm', ['install', '--prefix', sharpDir, '--no-audit', '--no-fund', 'sharp'], snapshot);
+  mkdirSync(join(snapshot, 'scripts'), { recursive: true });
+  copyFileSync(join(root, 'scripts', 'gen-icons.mjs'), join(snapshot, 'scripts', 'gen-icons.mjs'));
   run('node', ['scripts/gen-icons.mjs'], snapshot, { SHARP_DIR: sharpDir });
   run('npm', ['run', 'build'], snapshot);
 
@@ -153,6 +155,8 @@ function publish(source, version, snapshot) {
 run('git', ['config', 'user.name', 'github-actions[bot]']);
 run('git', ['config', 'user.email', 'github-actions[bot]@users.noreply.github.com']);
 run('git', ['fetch', 'origin', 'main', '--tags']);
+run('git', ['remote', 'add', 'upstream', 'https://github.com/birdstudy-nj/songloft-remote-caller.git']);
+run('git', ['fetch', 'upstream', 'main:refs/remotes/upstream/main']);
 
 let mainPlugin = JSON.parse(capture('git', ['show', 'origin/main:plugin.json']));
 const baseVersion = mainPlugin.version;
@@ -179,10 +183,10 @@ while (true) {
   mainPlugin = JSON.parse(capture('git', ['show', 'origin/main:plugin.json']));
   const base = mainPlugin.releaseSource || capture('git', ['rev-parse', `v${mainPlugin.version}^{commit}`]);
   if (!/^[a-f0-9]{40}$/.test(base)) throw new Error('Invalid release source');
-  run('git', ['merge-base', '--is-ancestor', base, 'origin/main']);
+  run('git', ['merge-base', '--is-ancestor', base, 'upstream/main']);
 
-  const pending = capture('git', ['log', '--first-parent', '--reverse',
-    '--format=%H%x09%an%x09%s', `${base}..origin/main`])
+  const pending = capture('git', ['log', '--reverse',
+    '--format=%H%x09%an%x09%s', `${base}..upstream/main`])
     .split('\n').filter(Boolean).map(line => line.split('\t'))
     .filter(([source, author, subject]) => !isVersionCommit(author, subject) &&
       hasPackageChanges(capture('git', ['diff', '--name-only', '--no-renames',
