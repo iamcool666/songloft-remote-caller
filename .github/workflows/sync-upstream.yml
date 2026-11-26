@@ -1,0 +1,107 @@
+name: Sync Upstream
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sync-upstream.yml'
+  schedule:
+    - cron: "41 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fetch upstream and merge source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/birdstudy-nj/songloft-remote-caller.git
+          git fetch origin main
+          git fetch upstream main:refs/remotes/upstream/main
+
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "Fork is already up to date with upstream."
+            exit 0
+          fi
+
+          # Preserve the fork's release machinery and update manifest.
+          mkdir -p /tmp/fork-config/scripts /tmp/fork-config/workflows
+          cp scripts/release-plugin.mjs /tmp/fork-config/scripts/release-plugin.mjs
+          cp scripts/gen-icons.mjs /tmp/fork-config/scripts/gen-icons.mjs
+          cp .github/workflows/release.yml /tmp/fork-config/workflows/release.yml
+          cp .github/workflows/sync-upstream.yml /tmp/fork-config/workflows/sync-upstream.yml
+          cp manifest.json /tmp/fork-config/manifest.json
+          git show HEAD:plugin.json > /tmp/fork-config/plugin.json
+          git show upstream/main:plugin.json > /tmp/fork-config/upstream-plugin.json
+
+          # Upstream wins all business-source conflicts.
+          git merge --no-commit --no-ff -X theirs upstream/main
+
+          mkdir -p scripts .github/workflows
+          cp /tmp/fork-config/scripts/release-plugin.mjs scripts/release-plugin.mjs
+          cp /tmp/fork-config/scripts/gen-icons.mjs scripts/gen-icons.mjs
+          cp /tmp/fork-config/workflows/release.yml .github/workflows/release.yml
+          cp /tmp/fork-config/workflows/sync-upstream.yml .github/workflows/sync-upstream.yml
+          cp /tmp/fork-config/manifest.json manifest.json
+
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const local = JSON.parse(readFileSync('/tmp/fork-config/plugin.json', 'utf8'));
+          const upstream = JSON.parse(readFileSync('/tmp/fork-config/upstream-plugin.json', 'utf8'));
+          const repository = process.env.GITHUB_REPOSITORY;
+          const firstSync = !/^[a-f0-9]{40}$/.test(local.releaseSource || '');
+          const manifest = {
+            ...upstream,
+            version: firstSync ? upstream.version : local.version,
+            releaseSource: firstSync ? '' : local.releaseSource,
+            entryHash: firstSync ? (upstream.entryHash || '') : (local.entryHash || ''),
+            zipHash: firstSync ? (upstream.zipHash || '') : (local.zipHash || ''),
+            homepage: `https://github.com/${repository}`,
+            updateUrl: `https://raw.githubusercontent.com/${repository}/main/manifest.json`,
+          };
+          delete manifest.download_url;
+          writeFileSync('plugin.json', JSON.stringify(manifest, null, 2) + '\n');
+          NODE
+
+          git add -A
+          git commit --allow-empty -m "chore(sync): merge upstream birdstudy-nj/songloft-remote-caller"
+          sync_source="$(git rev-parse HEAD)"
+
+          # Initialize the first release baseline at the merged source snapshot,
+          # so bootstrap does not publish the same source a second time.
+          if ! node -e "const p=require('./plugin.json'); process.exit(/^[a-f0-9]{40}$/.test(p.releaseSource||'')?0:1)"; then
+            node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const p = JSON.parse(readFileSync('plugin.json', 'utf8'));
+          p.releaseSource = process.env.SYNC_SOURCE;
+          writeFileSync('plugin.json', JSON.stringify(p, null, 2) + '\n');
+          NODE
+            git add plugin.json
+            git commit -m "chore(sync): initialize upstream release baseline"
+          fi
+
+          git push origin HEAD:main
+
+      - name: Start fork release workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main
