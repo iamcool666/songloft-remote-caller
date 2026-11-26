@@ -65,7 +65,6 @@ function build(snapshot, source, version) {
   run('npm', ['install', '--prefix', sharpDir, '--no-audit', '--no-fund', 'sharp'], snapshot);
   run('node', ['scripts/gen-icons.mjs'], snapshot, { SHARP_DIR: sharpDir });
   run('npm', ['run', 'build'], snapshot);
-  run('npm', ['run', 'validate'], snapshot);
 
   const zipPath = join(snapshot, 'dist', `${plugin.entryPath}.jsplugin.zip`);
   if (!existsSync(zipPath)) throw new Error(`Build did not produce ${zipPath}`);
@@ -76,10 +75,17 @@ function build(snapshot, source, version) {
     if (built.entryHash) plugin.entryHash = built.entryHash;
     if (built.zipHash) plugin.zipHash = built.zipHash;
   }
+  if (!plugin.entryHash) {
+    const entryPath = join(snapshot, 'dist', 'main.js');
+    if (existsSync(entryPath)) plugin.entryHash = createHash('sha256').update(readFileSync(entryPath)).digest('hex');
+  }
   if (!plugin.zipHash) {
     plugin.zipHash = createHash('sha256').update(readFileSync(zipPath)).digest('hex');
   }
   writeJSON(pluginPath, plugin);
+
+  // validate requires the freshly generated hashes to be present in plugin.json.
+  run('npm', ['run', 'validate'], snapshot);
   return { plugin, zipPath };
 }
 
