@@ -89,7 +89,7 @@ jobs:
           # Initialize the first release baseline at the merged source snapshot,
           # so bootstrap does not publish the same source a second time.
           if ! node -e "const p=require('./plugin.json'); process.exit(/^[a-f0-9]{40}$/.test(p.releaseSource||'')?0:1)"; then
-            node --input-type=module <<'NODE'
+            SYNC_SOURCE="$sync_source" node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync } from 'node:fs';
           const p = JSON.parse(readFileSync('plugin.json', 'utf8'));
           p.releaseSource = process.env.SYNC_SOURCE;
