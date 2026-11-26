@@ -16,7 +16,7 @@
     "command"
   ],
   "updateUrl": "https://raw.githubusercontent.com/iamcool666/songloft-remote-caller/main/manifest.json",
-  "entryHash": "",
-  "zipHash": "",
+  "entryHash": "d3280f75a633638db00c410e963a16b4dc1ff658bc27dbb6b16115baf1b518de",
+  "zipHash": "9a516e339dcede0d25acad26bc116f56fc13af01e80d62bd51bb2c139b8ffb69",
   "releaseSource": "86daba593f43f7e66e307e1a22d03708d9e6267e"
 }
