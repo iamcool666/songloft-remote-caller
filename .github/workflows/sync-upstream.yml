@@ -84,7 +84,7 @@ jobs:
 
           git add -A
           git commit --allow-empty -m "chore(sync): merge upstream birdstudy-nj/songloft-remote-caller"
-          sync_source="$(git rev-parse HEAD)"
+          sync_source="$(git rev-parse upstream/main)"
 
           # Initialize the first release baseline at the merged source snapshot,
           # so bootstrap does not publish the same source a second time.
