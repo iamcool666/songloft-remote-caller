@@ -154,7 +154,7 @@ function publish(source, version, snapshot) {
 
 run('git', ['config', 'user.name', 'github-actions[bot]']);
 run('git', ['config', 'user.email', 'github-actions[bot]@users.noreply.github.com']);
-run('git', ['fetch', 'origin', 'main', '--tags']);
+run('git', ['fetch', 'origin', 'main']);
 run('git', ['remote', 'add', 'upstream', 'https://github.com/birdstudy-nj/songloft-remote-caller.git']);
 run('git', ['fetch', 'upstream', 'main:refs/remotes/upstream/main']);
 
@@ -179,7 +179,7 @@ if (!releaseExistsForVersion(releases, baseVersion)) {
 }
 
 while (true) {
-  run('git', ['fetch', 'origin', 'main', '--tags']);
+  run('git', ['fetch', 'origin', 'main']);
   mainPlugin = JSON.parse(capture('git', ['show', 'origin/main:plugin.json']));
   const base = mainPlugin.releaseSource || capture('git', ['rev-parse', `v${mainPlugin.version}^{commit}`]);
   if (!/^[a-f0-9]{40}$/.test(base)) throw new Error('Invalid release source');
