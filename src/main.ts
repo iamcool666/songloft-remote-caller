@@ -5,8 +5,14 @@ const router = createRouter();
 
 // 缓存 static/silence.mp3 字节流，避免每次重复读盘解码
 let cachedSilenceBytes: Uint8Array | null = null;
-// 记录上一次的停止播放定时器，防止连续发送时误停新语音
+// 记录上一次的停止播放与退桌面定时器，防止连续发送时误停新语音
 let stopPlayTimer: any = null;
+let backHomeTimer: any = null;
+
+// 缓存各小米账号的 micoapi serviceToken（30 分钟有效）
+const TOKEN_TTL_MS = 30 * 60 * 1000;
+const UBUS_URL = 'https://api2.mina.mi.com/remote/ubus';
+const micoTokenCache: Record<string, { userId: string; serviceToken: string; ts: number }> = {};
 
 function getReqBodyText(body: any): string {
     if (!body) return "";
@@ -71,7 +77,7 @@ function bytesToBase64(bytes: Uint8Array): string {
 async function getSilenceBytes(): Promise<Uint8Array | null> {
     if (cachedSilenceBytes) return cachedSilenceBytes;
     try {
-        const raw: any = await songloft.fs.readFile('static/silence.93ffae12.mp3', { encoding: 'base64' });
+        const raw: any = await songloft.fs.readFile('static/silence.mp3', { encoding: 'base64' });
         cachedSilenceBytes = typeof raw === 'string' ? base64ToBytes(raw) : new Uint8Array(raw);
         return cachedSilenceBytes;
     } catch (e) {
@@ -79,6 +85,189 @@ async function getSilenceBytes(): Promise<Uint8Array | null> {
         return null;
     }
 }
+
+// ================= 触屏音箱识别 & 静默「返回桌面」 =================
+
+function isTouchScreenSpeaker(hardware: string, deviceName: string): boolean {
+    const hw = String(hardware || '').trim().toUpperCase();
+    const name = String(deviceName || '').trim();
+    if (/^(LX04|X06|X08|X10)/.test(hw)) return true;
+    if (/触屏|家庭屏/.test(name)) return true;
+    return false;
+}
+
+function randId(n: number): string {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let s = '';
+    for (let i = 0; i < n; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+}
+
+function extractCookieValue(headers: any, name: string): string {
+    if (!headers) return '';
+    let list: string[] = [];
+    try {
+        if (typeof headers.getSetCookie === 'function') {
+            const arr = headers.getSetCookie();
+            if (Array.isArray(arr) && arr.length) list = arr;
+        }
+    } catch (e) {}
+    if (!list.length) {
+        try {
+            const v = typeof headers.get === 'function' ? headers.get('Set-Cookie') : '';
+            if (v) list = [v];
+        } catch (e) {}
+    }
+    for (const item of list) {
+        const parts = String(item).split(';');
+        for (const rawPart of parts) {
+            const p = rawPart.trim();
+            const idx = p.indexOf('=');
+            if (idx > 0 && p.slice(0, idx).trim() === name) {
+                return p.slice(idx + 1).trim();
+            }
+        }
+    }
+    return '';
+}
+
+async function exchangeMicoServiceToken(passToken: string, userId: string): Promise<string | null> {
+    const g = globalThis as any;
+    if (typeof g.__go_crypto_sha1 !== 'function' || typeof g.__go_buffer_to_string !== 'function') {
+        songloft.log.warn("宿主缺少 SHA1 加密原语，无法换取 micoapi token");
+        return null;
+    }
+
+    const dev = randId(16);
+    const ua = `Android-7.1.1-1.0.0-ONEPLUS A3010-136-${dev} APP/xiaomi.smarthome APPV/62830`;
+    const commonHeaders = {
+        'User-Agent': ua,
+        'Cookie': `passToken=${passToken};userId=${userId};deviceId=${dev};sdkVersion=3.8.6`,
+        'X-Fetch-No-Redirect': '1',
+        'X-Fetch-Timeout-Ms': '5000'
+    };
+
+    const r1 = await fetch('https://account.xiaomi.com/pass/serviceLogin?sid=micoapi&_json=true', {
+        method: 'GET',
+        headers: commonHeaders
+    });
+    const raw1 = (await r1.text()).replace(/&&&START&&&/g, '').trim();
+    let d: any = null;
+    try { d = JSON.parse(raw1); } catch (e) {}
+    if (!d || String(d.code || '0') !== '0' || !d.location) return null;
+
+    const ssec = String(d.ssecurity || '');
+    const nm = raw1.match(/"nonce"\s*:\s*(\d+)/);
+    const nonce = nm ? nm[1] : String(d.nonce || '');
+    const sign = g.__go_buffer_to_string(g.__go_crypto_sha1(`nonce=${nonce}&${ssec}`), 'base64');
+
+    const loc = String(d.location);
+    const url2 = loc + (loc.includes('?') ? '&' : '?') + `_userIdNeedEncrypt=true&clientSign=${encodeURIComponent(sign)}`;
+    const r2 = await fetch(url2, { method: 'GET', headers: commonHeaders });
+    const st = extractCookieValue(r2.headers, 'serviceToken');
+    return st || null;
+}
+
+async function getMicoAuth(hostUrl: string, pluginToken: string, accountId: string, forceRefresh = false): Promise<{ userId: string; serviceToken: string } | null> {
+    const cacheKey = String(accountId || 'default');
+    const cached = micoTokenCache[cacheKey];
+    if (!forceRefresh && cached && (Date.now() - cached.ts < TOKEN_TTL_MS)) {
+        return { userId: cached.userId, serviceToken: cached.serviceToken };
+    }
+
+    try {
+        const res = await fetch(`${hostUrl}/api/v1/jsplugin/miot/accounts`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${pluginToken}` }
+        });
+        if (!res.ok) return null;
+
+        const json: any = await res.json();
+        const list = Array.isArray(json?.data) ? json.data : (Array.isArray(json?.accounts) ? json.accounts : (Array.isArray(json) ? json : []));
+        if (!list.length) return null;
+
+        const target = list.find((a: any) =>
+            String(a.id || a.account_id || a.account || a.user_id || a.userId || '') === String(accountId)
+        ) || list[0];
+
+        const userId = String(target.user_id || target.userId || target.id || '').trim();
+        const passToken = String(target.pass_token || target.passToken || '').trim();
+        if (!userId || !passToken) return null;
+
+        const serviceToken = await exchangeMicoServiceToken(passToken, userId);
+        if (!serviceToken) return null;
+
+        micoTokenCache[cacheKey] = { userId, serviceToken, ts: Date.now() };
+        return { userId, serviceToken };
+    } catch (e) {
+        songloft.log.warn("获取小米云凭据失败: " + e);
+        return null;
+    }
+}
+
+async function sendSilentBackToHome(hostUrl: string, pluginToken: string, accountId: string, deviceId: string): Promise<boolean> {
+    for (let attempt = 0; attempt < 2; attempt++) {
+        const auth = await getMicoAuth(hostUrl, pluginToken, accountId, attempt === 1);
+        if (!auth) return false;
+
+        const form = [
+            'deviceId=' + encodeURIComponent(deviceId),
+            'method=ai_service',
+            'path=mibrain',
+            'message=' + encodeURIComponent(JSON.stringify({ tts: 0, nlp: 1, nlp_text: '返回桌面' })),
+            'requestId=' + encodeURIComponent('app_ios_' + randId(30))
+        ].join('&');
+
+        try {
+            const resp = await fetch(UBUS_URL, {
+                method: 'POST',
+                headers: {
+                    'User-Agent': 'Android-7.1.1-1.0.0-ONEPLUS A3010-136-RCAPP01 APP/xiaomi.smarthome APPV/62830',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Cookie': `userId=${auth.userId}; serviceToken=${auth.serviceToken}; channel=MI_APP_STORE`,
+                    'X-Fetch-Timeout-Ms': '8000'
+                },
+                body: form
+            });
+
+            if (resp.status === 401 && attempt === 0) {
+                delete micoTokenCache[String(accountId || 'default')];
+                continue;
+            }
+
+            const text = await resp.text();
+            let data: any = null;
+            try { data = JSON.parse(text); } catch (e) {}
+
+            const ok = resp.status >= 200 && resp.status < 300 && (data?.code === 0 || data?.code === '0');
+            if (!ok) {
+                songloft.log.warn(`触屏「返回桌面」未受理: HTTP ${resp.status} / ${text.slice(0, 200)}`);
+            }
+            return ok;
+        } catch (err) {
+            songloft.log.warn("触屏「返回桌面」请求异常: " + err);
+            return false;
+        }
+    }
+    return false;
+}
+
+async function stopSpeakerPlayback(hostUrl: string, headers: Record<string, string>, accountId: string, deviceId: string): Promise<void> {
+    try {
+        await fetch(`${hostUrl}/api/v1/jsplugin/miot/player/stop`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                account_id: accountId,
+                device_id: deviceId
+            })
+        });
+    } catch (err) {
+        songloft.log.error("停止小爱音箱循环播放失败: " + err);
+    }
+}
+
+// ================= 路由处理 =================
 
 router.post('/upload', async (req) => {
     try {
@@ -89,6 +278,8 @@ router.post('/upload', async (req) => {
         const base64Str = data.audio_base64;
         const accountId = data.account_id;
         const deviceId = data.device_id;
+        const hardware = data.hardware || '';
+        const deviceName = data.device_name || '';
         const durationMs = data.duration_ms || 3000;
 
         if (!base64Str) return jsonResponse({ error: '未找到 audio_base64 字段' }, 400);
@@ -98,7 +289,7 @@ router.post('/upload', async (req) => {
         const rawFile = isMp4 ? 'voice_raw.m4a' : 'voice_raw.webm';
         await songloft.fs.writeFile(rawFile, base64Str, { encoding: 'base64' });
 
-        // 2. 单次转码为与 silence.mp3 完全同规格的无头 MP3 帧流（44100Hz 单声道 128k，禁用 Xing 时长头）
+        // 2. 单次转码为与 silence.mp3 完全同规格的无头 MP3 帧流
         const execRes: any = await songloft.command.exec('ffmpeg', [
             '-y',
             '-i', rawFile,
@@ -117,7 +308,7 @@ router.post('/upload', async (req) => {
             throw new Error('ffmpeg 转码失败');
         }
 
-        // 3. 在内存中将录音 MP3 与 3 秒静音 MP3 极速拼接并输出到 static/voice.mp3
+        // 3. 在内存中将录音 MP3 与 3 秒静音 MP3 拼接并输出到 static/voice.mp3
         const rawBodyMp3: any = await songloft.fs.readFile('voice_body.mp3', { encoding: 'base64' });
         const bodyBytes = typeof rawBodyMp3 === 'string' ? base64ToBytes(rawBodyMp3) : new Uint8Array(rawBodyMp3);
         const silenceBytes = await getSilenceBytes();
@@ -128,7 +319,6 @@ router.post('/upload', async (req) => {
             merged.set(silenceBytes, bodyBytes.byteLength);
             await songloft.fs.writeFile('static/voice.mp3', bytesToBase64(merged), { encoding: 'base64' });
         } else {
-            // 若未读取到静音文件，直接使用原音兜底
             await songloft.fs.writeFile('static/voice.mp3', bytesToBase64(bodyBytes), { encoding: 'base64' });
         }
 
@@ -157,23 +347,26 @@ router.post('/upload', async (req) => {
             })
         });
 
-        // 5. 定时发送停止指令（配合末尾 3 秒静音缓冲，彻底防止单曲循环）
+        // 5. 定时停止：所有音箱先执行 player/stop 保证停播；触屏音箱停播后再静默「返回桌面」
+        const isScreen = isTouchScreenSpeaker(hardware, deviceName);
         if (stopPlayTimer) {
             clearTimeout(stopPlayTimer);
+            stopPlayTimer = null;
         }
+        if (backHomeTimer) {
+            clearTimeout(backHomeTimer);
+            backHomeTimer = null;
+        }
+
         stopPlayTimer = setTimeout(async () => {
             stopPlayTimer = null;
-            try {
-                await fetch(`${hostUrl}/api/v1/jsplugin/miot/player/stop`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        account_id: accountId,
-                        device_id: deviceId
-                    })
-                });
-            } catch (err) {
-                songloft.log.error("停止小爱音箱循环播放失败: " + err);
+            await stopSpeakerPlayback(hostUrl, headers, accountId, deviceId);
+
+            if (isScreen) {
+                backHomeTimer = setTimeout(async () => {
+                    backHomeTimer = null;
+                    await sendSilentBackToHome(hostUrl, token, accountId, deviceId);
+                }, 300);
             }
         }, durationMs + 1500);
 
