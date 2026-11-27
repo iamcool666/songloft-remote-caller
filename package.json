@@ -1,6 +1,6 @@
 {
   "name": "remote-caller",
-  "version": "1.0.0",
+  "version": "0.9.2",
   "description": "小爱音箱趣味互动插件。让智能音箱秒变'家庭对讲机'和'整蛊神器'！",
   "private": true,
   "scripts": {
